@@ -1,4 +1,4 @@
-name: base
+name: loa_base
 channels:
   - apple
   - conda-forge
