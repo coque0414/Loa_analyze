@@ -4,16 +4,16 @@ from loa_api_token import Token
 
 headers = {
     'accept': 'application/json',
-    'authorization': Token
+    'Authorization' : Token
 }
 
-url = 'https://developer-lostark.game.onstove.com/news/notice'
+characterName = '경민네'
+url = f'https://developer-lostark.game.onstove.com/characters/{characterName}/siblings'
 
 response = requests.get(url, headers=headers)
-jsonObject = response.json()
+json_data = response.json()
 
-print(jsonObject)
-
-# json 출력 코드
-for list in jsonObject :
-    print(list.get("Title"))
+# print("응답내용:", response.text)
+# print(json_data)
+for list1 in json_data:
+    print(json.dumps(list1, indent=4, ensure_ascii=False))
