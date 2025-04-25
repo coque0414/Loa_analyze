@@ -4,7 +4,7 @@ import time
 import json
 
 # 기본 설정
-BASE_LIST_URL = 'https://www.inven.co.kr/board/lostark/7000'
+BASE_LIST_URL = 'https://www.inven.co.kr/board/lostark/6271'
 HEADERS = {
     'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                    'AppleWebKit/537.36 (KHTML, like Gecko) '
