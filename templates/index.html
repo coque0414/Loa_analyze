@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}메인 페이지{% endblock %}
+
+{% block content %}
+  <style>
+    /* 카드 크기를 CSS 변수 --card-size 로 지정 (기본 200px) */
+    .square-card {
+      width: var(--card-size, 200px);
+      aspect-ratio: 1 / 1;   /* 1:1 비율 유지 */
+      overflow: hidden;
+    }
+    .square-card .card-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 1rem;
+    }
+    .square-card img {
+      max-width: 60%;
+      height: auto;
+      margin-bottom: 0.5rem;
+    }
+  </style>
+
+  <!-- 2열 레이아웃, 가로/세로 간격(g-2) 적용 -->
+  <div class="row row-cols-4 g-2 justify-content-center">
+    {% for btn in buttons %}
+      <div class="col d-flex justify-content-center">
+        <a href="{{ btn.href }}"
+           class="card square-card text-decoration-none"
+           style="--card-size: 240px;">
+          <div class="card-content">
+            <img src="{{ btn.img }}" alt="버튼 {{ btn.label }}">
+            <h5 class="card-title text-center">{{ btn.label }}</h5>
+          </div>
+        </a>
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}
