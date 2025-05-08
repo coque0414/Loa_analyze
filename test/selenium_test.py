@@ -11,7 +11,7 @@ import time
 import csv
 
 # ✔️ ChromeDriver 경로 설정
-chrome_driver_path = "test\chromedriver-win64\chromedriver.exe"  # 예: "C:/chromedriver.exe"
+chrome_driver_path = "test/chromedriver-win64/chromedriver.exe"  # 예: "C:/chromedriver.exe"
 
 # ✔️ Chrome 옵션 설정
 options = Options()
