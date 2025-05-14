@@ -31,7 +31,7 @@ driver.get(base_url)
 time.sleep(2)
 
 # ✔️ 게시판 목록 순회
-for i in range(5, 15):  # 테스트로 10개만
+for i in range(7, 17):  # 테스트로 10개만
     try:
         selector = f"#new-board > form > div > table > tbody > tr:nth-child({i})"
         tr = driver.find_element(By.CSS_SELECTOR, selector)
@@ -41,63 +41,68 @@ for i in range(5, 15):  # 테스트로 10개만
         title = tds[1].text.strip()
         link = tds[1].find_element(By.CSS_SELECTOR, "a.subject-link").get_attribute("href")
         author = tds[2].text.strip()
-        created_raw = tds[3].text.strip()
-        created_at = datetime.strptime(created_raw, "%Y.%m.%d").strftime("%Y-%m-%d")
+        # created_raw = tds[3].text.strip()
+        # created_at = datetime.strptime(created_raw, "%Y.%m.%d").strftime("%Y-%m-%d")
         views = int(tds[4].text.strip().replace(",", ""))
         likes = int(tds[5].text.strip())
 
-        # ✔️ 게시물 본문 진입
-        driver.get(link)
-        time.sleep(1)
-        try:
-            content = driver.find_element(By.CSS_SELECTOR, "div.article").text
-        except:
-            content = "(본문 없음)"
+        print(post_id, title, link, author, views, likes)
 
-        # ✔️ 댓글 크롤링
-        comments = []
-        try:
-            comment_blocks = driver.find_elements(By.CSS_SELECTOR, "div.comment-list > div.comment")
-            for c in comment_blocks:
-                try:
-                    c_author = c.find_element(By.CLASS_NAME, "nick").text.strip()
-                    c_text = c.find_element(By.CLASS_NAME, "text").text.strip()
-                    c_date_raw = c.find_element(By.CLASS_NAME, "date").text.strip()
-                    c_date = re.search(r"\d{4}-\d{2}-\d{2}", c_date_raw)
-                    c_date = c_date.group() if c_date else datetime.today().strftime("%Y-%m-%d")
-                    comments.append({
-                        "author": c_author,
-                        "text": c_text,
-                        "created_at": c_date
-                    })
-                except:
-                    continue
-        except:
-            pass
+    except:
+        pass
 
-        # ✔️ MongoDB 저장
-        document = {
-            "post_id": post_id,
-            "title": title,
-            "author": author,
-            "created_at": created_at,
-            "views": views,
-            "likes": likes,
-            "content": content,
-            "comments": comments,
-            "url": link,
-            "scraped_at": datetime.now().isoformat()
-        }
+    #     # ✔️ 게시물 본문 진입
+    #     driver.get(link)
+    #     time.sleep(1)
+    #     try:
+    #         content = driver.find_element(By.CSS_SELECTOR, "div.article").text
+    #     except:
+    #         content = "(본문 없음)"
 
-        collection.insert_one(document)
-        print(f"✅ 저장됨: {title}")
+    #     # ✔️ 댓글 크롤링
+    #     comments = []
+    #     try:
+    #         comment_blocks = driver.find_elements(By.CSS_SELECTOR, "div.comment-list > div.comment")
+    #         for c in comment_blocks:
+    #             try:
+    #                 c_author = c.find_element(By.CLASS_NAME, "nick").text.strip()
+    #                 c_text = c.find_element(By.CLASS_NAME, "text").text.strip()
+    #                 c_date_raw = c.find_element(By.CLASS_NAME, "date").text.strip()
+    #                 c_date = re.search(r"\d{4}-\d{2}-\d{2}", c_date_raw)
+    #                 c_date = c_date.group() if c_date else datetime.today().strftime("%Y-%m-%d")
+    #                 comments.append({
+    #                     "author": c_author,
+    #                     "text": c_text,
+    #                     "created_at": c_date
+    #                 })
+    #             except:
+    #                 continue
+    #     except:
+    #         pass
 
-        # ✔️ 다시 목록으로
-        driver.back()
-        time.sleep(1)
+    #     # ✔️ MongoDB 저장
+    #     document = {
+    #         "post_id": post_id,
+    #         "title": title,
+    #         "author": author,
+    #         "created_at": created_at,
+    #         "views": views,
+    #         "likes": likes,
+    #         "content": content,
+    #         "comments": comments,
+    #         "url": link,
+    #         "scraped_at": datetime.now().isoformat()
+    #     }
 
-    except Exception as e:
-        print(f"❌ 실패: {i}번째 tr. 에러: {e}")
-        continue
+    #     collection.insert_one(document)
+    #     print(f"✅ 저장됨: {title}")
+
+    #     # ✔️ 다시 목록으로
+    #     driver.back()
+    #     time.sleep(1)
+
+    # except Exception as e:
+    #     print(f"❌ 실패: {i}번째 tr. 에러: {e}")
+    #     continue
 
 driver.quit()
