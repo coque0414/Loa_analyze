@@ -4,6 +4,24 @@ from selenium.webdriver.common.by import By
 import time
 import os
 import csv
+from pymongo import MongoClient
+
+# MongoDB 설정
+MONGODB_URI = "mongodb+srv://coque:hoo8176@clusterloa.tdpglbb.mongodb.net/?retryWrites=true&w=majority&appName=ClusterLoa"
+DB_NAME = "lostark"
+COLLECTION_NAME = "community_posts"
+
+client = MongoClient(MONGODB_URI)
+collection = client[DB_NAME][COLLECTION_NAME]
+collection.create_index([("url", 1)], unique=True)
+
+item_keywords = {
+    "유각": [65201505, 65200805, 65203005,65203305,65203105,65200605,65203905,65201005,65200505,65202805,
+               65204105,65203505,65203705]
+    # "경명 파편": [65200805],
+    # "파괴석": [65203005],
+    # 필요한 만큼 추가
+}
 
 # --- 설정 ---
 options = Options()
@@ -81,14 +99,32 @@ for page in range(1, max_pages + 1):
             img_names.append(filename)
 
         # 결과 저장
-        results.append({
+        item_index = []
+        text_to_search = (title + " " + text_content).replace(" ", "")
+
+        for keyword, codes in item_keywords.items():
+            if keyword.replace(" ", "") in text_to_search:
+                if isinstance(codes, list):
+                    item_index.extend(codes)
+                else:
+                    item_index.append(codes)
+
+        item_index = list(set(item_index))
+
+        doc = {
             "title": title,
             "url": href,
             "author": author,
             "date": date,
             "text": text_content,
-            "images": img_names
-        })
+            "images": img_names,
+            "keyword": name_item,
+            "item_index": item_index
+        }
+
+        results.append(doc)
+        collection.update_one({"url": href}, {"$set": doc}, upsert=True)
+        # print("몽고디비 슛") 프린트 개많이하는거 에바임
 
         # 탭 닫고 메인 창으로 복귀
         driver.close()
@@ -96,6 +132,7 @@ for page in range(1, max_pages + 1):
         time.sleep(0.5)
 
 driver.quit()
+print("몽고디비 슛")
 
 # # 출력
 # for i, post in enumerate(results, 1):
@@ -112,7 +149,7 @@ driver.quit()
 #             print(f" - {img}")
 
 with open("inven_posts.csv", mode="w", newline="", encoding="utf-8-sig") as file:
-    writer = csv.DictWriter(file, fieldnames=["title", "url", "author", "date", "text", "images"])
+    writer = csv.DictWriter(file, fieldnames=["title", "url", "author", "date", "text", "images", "keyword","item_index"])
     writer.writeheader()
     for post in results:
         writer.writerow({
@@ -122,6 +159,7 @@ with open("inven_posts.csv", mode="w", newline="", encoding="utf-8-sig") as file
             "date": post["date"],
             "text": post["text"].replace("\n", " "),
             "images": "; ".join(post["images"]) if post["images"] else "",
-            "keyword" : name_item
+            "keyword": post["keyword"],
+            "item_index": "; ".join(map(str, post["item_index"])) if post["item_index"] else ""
         })
 print("저장완료티비")
