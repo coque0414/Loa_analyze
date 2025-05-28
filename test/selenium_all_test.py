@@ -17,16 +17,16 @@ collection.create_index([("url", 1)], unique=True)
 
 # --- Selenium 설정 ---
 options = webdriver.ChromeOptions()
-# options.add_argument('--headless')
+options.add_argument('--headless')
 
 driver = webdriver.Chrome(options=options)
 wait = WebDriverWait(driver, 10)
 
 # 시작 URL
-start_url = (
-    "https://www.inven.co.kr/board/lostark/6271?query=list"
-    "&p=1&sterm=&name=subjcont&keyword=유각"
-)
+# start_url = (
+#     "https://www.inven.co.kr/board/lostark/6271?query=list&p=1&sterm=&name=subjcont&keyword=유각"
+# )
+start_url=("https://www.inven.co.kr/board/lostark/6271?name=subjcont&keyword=%EC%9C%A0%EA%B0%81&sterm=8034399")
 driver.get(start_url)
 
 # 크롤링 기준: 오늘로부터 며칠 전까지 허용
