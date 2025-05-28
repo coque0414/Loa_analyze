@@ -27,13 +27,14 @@ item_keywords = {
 options = Options()
 options.add_argument("window-size=1280,720")
 options.add_argument("--disable-blink-features=AutomationControlled")
+options.add_argument('--headless')  # 브라우저 UI 없이 실행
 
 driver = webdriver.Chrome(options=options)
 # base_url = "https://www.inven.co.kr/search/lostark/article/유각/1?sort=recency"
 
 results = []
 
-max_pages = 3 #어디 페이지까지 긁어올지 정하는부분
+max_pages = 20 #어디 페이지까지 긁어올지 정하는부분
 name_item = "유각"
 
 for page in range(1, max_pages + 1):
