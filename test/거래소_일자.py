@@ -8,8 +8,8 @@ market_col = db['market_items']
 
 # ✅ 데이터 조회
 cursor = list(market_col.find(
-    {'item_code': 65203305},
-    {'_id': 0, 'date': 1, 'avg_price': 1, 'trade_count': 1}
+    {'item_code': 65201005},
+    {'_id': 0, 'name':1, 'date': 1, 'avg_price': 1, 'trade_count': 1}
 ))
 
 # ✅ DataFrame 생성

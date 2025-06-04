@@ -1,0 +1,155 @@
+<!-- templates/graphs.html -->
+{% extends "base.html" %}
+{% block title %}비밀의 그래프 공간{% endblock %}
+
+{% block content %}
+<style>
+  /* 전체 배경 -– 바 밖 여백 색 */
+  body{background:#dfeaf9;}
+
+  /* 중앙 영역 폭 & 정렬 */
+  .graph-section{max-width:1000px;margin:auto;}
+  /* 카드‐바디를 항상 흰색으로 */
+  .graph-section .card-body{background:#fff;}
+
+  /* 부품(아이템) 선택 카드 */
+  .part-select .card{
+      width:80px;height:80px;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+      transition:.2s;box-shadow:0 .25rem .5rem rgba(0,0,0,.05);
+  }
+  .part-select .card:hover,
+  .part-select .card.active{outline:3px solid #0d6efd;transform:translateY(-3px);}
+
+  /* 키워드 badge 스크롤 */
+  .tag-cloud{overflow-x:auto;white-space:nowrap;}
+  .tag-cloud .badge{margin:2px;font-weight:500;}
+
+  /* 게이지 카드(도넛 그래프 위 숫자) */
+  .dial-card{min-width:160px;position:relative;}
+  .dial-percentage{
+      position:absolute;top:50%;left:50%;
+      transform:translate(-50%,-50%);
+      font-weight:600;font-size:1.25rem;
+  }
+</style>
+
+<div class="graph-section">
+
+  <!-- ① 부품(아이템) 선택 -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <h6 class="fw-bold mb-3">Choose a part</h6>
+      <div class="d-flex gap-3 part-select">
+        <!-- 필요 개수만큼 반복 -->
+        <div class="part-item text-center">
+          <div class="card"><img src="/static/img/part1.png" class="img-fluid" alt=""></div>
+          <small class="d-block mt-2">팔찌</small>
+        </div>
+
+        <div class="part-item text-center">
+          <div class="card"><img src="/static/img/part2.png" class="img-fluid" alt=""></div>
+          <small class="d-block mt-2">어빌리티 스톤</small>
+        </div>
+
+        <div class="part-item text-center">
+          <div class="card"><img src="/static/img/part3.png" class="img-fluid" alt=""></div>
+          <small class="d-block mt-2">각인서</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 시세 그래프 -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <canvas id="priceChart" height="260"></canvas>
+    </div>
+  </div>
+
+  <!-- ③ 키워드/해시태그 -->
+  <div class="card mb-3">
+    <div class="card-body tag-cloud">
+      <span class="badge rounded-pill text-bg-primary-subtle">새로워졌다</span>
+      <span class="badge rounded-pill text-bg-primary-subtle">유저반응이 좋아요</span>
+      <span class="badge rounded-pill text-bg-primary-subtle">쓰기가 편하다</span>
+      <!-- …필요만큼 -->
+    </div>
+  </div>
+
+  <!-- ④ 날짜 선택 + 감정 게이지 -->
+  <div class="card">
+    <div class="card-body">
+      <div class="d-flex flex-wrap gap-4 align-items-start">
+        <!-- 달력/데이트피커 자리 -->
+        <div>
+          <h6 class="text-center mb-2">Choose a date</h6>
+          <input type="date" class="form-control" id="pickedDate">
+        </div>
+
+        <!-- 게이지 차트 묶음 -->
+        <div class="flex-grow-1">
+          <div class="d-flex justify-content-around flex-wrap">
+            <!-- 긍정 -->
+            <div class="dial-card">
+              <canvas id="posGauge" height="120"></canvas>
+              <div class="dial-percentage text-success">41%</div>
+              <p class="text-center small mt-2">긍정</p>
+            </div>
+            <!-- 부정 -->
+            <div class="dial-card">
+              <canvas id="negGauge" height="120"></canvas>
+              <div class="dial-percentage text-danger">41%</div>
+              <p class="text-center small mt-2">부정</p>
+            </div>
+            <!-- 중립 -->
+            <div class="dial-card">
+              <canvas id="neuGauge" height="120"></canvas>
+              <div class="dial-percentage text-info">19%</div>
+              <p class="text-center small mt-2">중립</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>  <!-- /.graph-section -->
+
+<!-- Chart.js 로드 -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+/* ① 가격 + 거래량 그래프 */
+new Chart(document.getElementById('priceChart'),{
+  type:'bar',
+  data:{
+    labels:['4/25','4/26','4/27','4/28','4/29','5/01','5/02','5/03','5/04','5/05','5/06','5/07','5/08','5/09','5/10'],
+    datasets:[
+      {type:'bar', label:'총 거래량', data:[200,230,210,180,1350,2400,600,900,300,380,420,0,0,0,0],
+       backgroundColor:'#0d6efd'},
+      {type:'line', label:'평균가', data:[1200,1250,1270,1300,1400,1800,1500,1450,1420,1380,1320,1300,0,0,0],
+       yAxisID:'y1', borderColor:'#28a745', tension:.3}
+    ]
+  },
+  options:{
+    plugins:{legend:{position:'right'}},
+    scales:{
+      y:{beginAtZero:true},
+      y1:{beginAtZero:false,position:'right',grid:{drawOnChartArea:false}}
+    }
+  }
+});
+
+/* ② 도넛-게이지(긍·부·중) */
+function makeGauge(el,color){
+  return new Chart(el,{
+    type:'doughnut',
+    data:{datasets:[{data:[41,59],backgroundColor:[color,'#e9ecef'],borderWidth:0}]},
+    options:{cutout:'70%',plugins:{legend:{display:false},tooltip:{enabled:false}}}
+  });
+}
+makeGauge(document.getElementById('posGauge'),'#28a745');
+makeGauge(document.getElementById('negGauge'),'#dc3545');
+makeGauge(document.getElementById('neuGauge'),'#0dcaf0');
+</script>
+{% endblock %}

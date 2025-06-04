@@ -17,16 +17,28 @@ collection.create_index([("url", 1)], unique=True)
 
 # --- Selenium 설정 ---
 options = webdriver.ChromeOptions()
-options.add_argument('--headless')
+# options.add_argument('--headless')
+
+# options.add_argument('--disable-gpu')                    # GPU 비활성화 (윈도우 헤드리스 환경에서 권장)
+# options.add_argument('--no-sandbox')                     # 샌드박스 모드 비활성화 (리눅스 환경에서 흔히 사용)
+# options.add_argument('--disable-dev-shm-usage')          # /dev/shm 파티션 부족 문제 방지
+# options.add_argument('--ignore-certificate-errors')      # SSL 인증서 오류 무시
+# options.add_argument('--ignore-ssl-errors')              # SSL 오류 무시
+options.add_argument("--window-size=1920,1080")          # 윈도우 크기 지정 (일부 사이트가 해상도 체크를 할 수도 있음)
+# options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+#                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+#                      "Chrome/114.0.5735.199 Safari/537.36")
+# options.add_argument('--enable-unsafe-swiftshader')
 
 driver = webdriver.Chrome(options=options)
 wait = WebDriverWait(driver, 10)
 
 # 시작 URL
-# start_url = (
-#     "https://www.inven.co.kr/board/lostark/6271?query=list&p=1&sterm=&name=subjcont&keyword=유각"
-# )
-start_url=("https://www.inven.co.kr/board/lostark/6271?name=subjcont&keyword=%EC%9C%A0%EA%B0%81&sterm=8034399")
+start_url = (
+    "https://www.inven.co.kr/board/lostark/6271?query=list&p=1&sterm=&name=subjcont&keyword=유각"
+    # "https://www.inven.co.kr/board/lostark/6271?name=subjcont&keyword=유각&sterm=8139383"
+)
+# start_url=("https://www.inven.co.kr/board/lostark/6271?name=subjcont&keyword=%EC%9C%A0%EA%B0%81&sterm=8034399")
 driver.get(start_url)
 
 # 크롤링 기준: 오늘로부터 며칠 전까지 허용
@@ -34,9 +46,8 @@ MAX_DAYS_OLD = 8  # 1일 전까지 허용
 
 # 키워드 매핑
 item_keywords = {
-    "유각": [65201505, 65200805, 65203005, 65203305, 65203105,
-              65200605, 65203905, 65201005, 65200505, 65202805,
-              65204105, 65203505, 65203705]
+    "유각": [65201505, 65200805, 65203005, 65203305, 65203105,65200605, 65203905, 65201005, 65200505, 65202805,65204105, 65203505, 65203705]
+    # "보석" : [65021100, 65032100, 65022100, 65031100, 65031090, 65021090, 65032090, 65022090, 65031080, 65032080,65031070,65032070]
 }
 
 # 게시물 목록 로딩 함수

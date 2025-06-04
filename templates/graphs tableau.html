@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}비밀의 그래프 공간{% endblock %}
+
+{% block content %}
+<style>
+  body{background:#dfeaf9;}
+  .graph-section{max-width:1000px;margin:auto;}
+  .graph-section .card-body{background:#fff;}
+  .part-item input:checked + .card{outline:3px solid #0d6efd;transform:translateY(-3px);transition:.2s;}
+  .part-item .card{width:80px;height:80px;display:flex;align-items:center;justify-content:center;box-shadow:0 .25rem .5rem rgba(0,0,0,.05);cursor:pointer;}
+</style>
+
+<div class="graph-section">
+  <!-- 아이템 선택 -->
+  <div class="card mb-3"><div class="card-body">
+    <h6 class="fw-bold mb-3">Choose a part</h6>
+    <div class="d-flex gap-4 part-select">
+      {% set items = [
+        (65201505,'/static/img/part1.png','팔찌'),
+        (65200805,'/static/img/part2.png','어빌리티 스톤'),
+        (65203005,'/static/img/part3.png','각인서')
+      ] %}
+      {% for code,img,label in items %}
+      <label class="part-item text-center">
+        <input type="radio" name="part" value="{{code}}" hidden {% if loop.first %}checked{% endif %}>
+        <div class="card"><img src="{{img}}" class="img-fluid"></div>
+        <small class="d-block mt-2">{{label}}</small>
+      </label>
+      {% endfor %}
+    </div>
+  </div></div>
+
+  <!-- Tableau Viz -->
+  <div class="card"><div class="card-body">
+    <div id="tableauViz" style="width:100%;height:420px;"></div>
+  </div></div>
+</div>
+
+<!-- Tableau JS API -->
+<script src="https://public.tableau.com/javascripts/api/tableau-2.min.js"></script>
+<script>
+const DEFAULT_CODE = 65201505;   // 초기 아이템 코드
+let viz;
+
+function buildVizUrl(code){
+  /*
+     Tableau Server/Online/Public 에 게시한 대시보드 URL 예시
+     ‑ URL 에 ?item_code=<값> 식의 파라미터를 주면
+       대시보드 안의 Parameter(이름=item_code) 로 전달 가능.
+     ‑ 실제 URL 은 본인 Tableau 환경에 맞게 교체.
+  */
+  return `https://public.tableau.com/views/LoA_Market_Dashboard/Main?:showVizHome=no&:embed=true&item_code=${code}`;
+}
+
+function initViz(code){
+  const container = document.getElementById('tableauViz');
+  const url       = buildVizUrl(code);
+  const options   = {
+    hideTabs: true,
+    width: "100%",
+    height: "100%",
+    onFirstInteractive: ()=>console.log('Tableau viz ready')
+  };
+  if(viz){ viz.dispose(); }
+  viz = new tableau.Viz(container, url, options);
+}
+
+/* 라디오 변화에 따라 viz 갱신 */
+document.querySelectorAll('input[name="part"]').forEach(el=>{
+  el.addEventListener('change', ()=>initViz(el.value));
+});
+window.addEventListener('DOMContentLoaded', ()=>initViz(DEFAULT_CODE));
+</script>
+{% endblock %}
