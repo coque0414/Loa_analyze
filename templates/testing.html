@@ -1,15 +1,77 @@
-<!-- templates/testing.html -->
 {% extends "base.html" %}
-{% block title %}테스트 중{% endblock %}
+{% block title %}테스트 중 – RAG 챗봇{% endblock %}
 
 {% block content %}
+<!-- ① 이 스타일 블록을 추가 -->
+<style>
+  /* 채팅창 안 .badge 요소가 내용 길이에 따라 줄바꿈되도록 */
+  #chatWindow .badge {
+    display: inline-block;       /* 블록처럼 동작하면서 텍스트 줄바꿈 허용 */
+    white-space: pre-wrap;       /* 공백은 보존하되, 줄바꿈 허용 */
+    word-break: break-word;      /* 단어 중간에도 줄바꿈 가능 */
+    max-width: 80%;              /* 필요하면 최대 너비 설정 */
+  }
+</style>
+
 <div class="container py-5">
-  <h1 class="mb-4">테스트 중</h1>
-  <div class="card">
+  <h1 class="mb-4">테스트 중 (RAG 챗봇)</h1>
+  <div class="card mb-4">
     <div class="card-body">
-      <!-- TODO: 테스트 내용을 여기에 추가 -->
-       비밀의 공간입니다
+      <div id="chatWindow"
+           style="height:400px;
+                  overflow-y:auto;
+                  padding:1rem;
+                  border:1px solid #dee2e6;
+                  border-radius:.25rem;
+                  background:#fff;">
+      </div>
+      <div class="input-group mt-3">
+        <input type="text" id="chatInput"
+               class="form-control"
+               placeholder="질문을 입력하세요…" />
+        <button id="sendBtn" class="btn btn-primary">전송</button>
+      </div>
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const chatWindow = document.getElementById("chatWindow");
+  const chatInput  = document.getElementById("chatInput");
+  const sendBtn    = document.getElementById("sendBtn");
+
+  function appendMessage(role, text) {
+    const wrapper = document.createElement("div");
+    wrapper.className = role === "user" ? "text-end mb-2" : "text-start mb-2";
+    // badge에 바로 줄바꿈 클래스를 주도록 수정했습니다.
+    wrapper.innerHTML = `<span class="badge ${role==="user"?"bg-primary":"bg-secondary"} p-2">${text}</span>`;
+    chatWindow.appendChild(wrapper);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+
+  async function sendQuestion() {
+    const question = chatInput.value.trim();
+    if (!question) return;
+    appendMessage("user", question);
+    chatInput.value = "";
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ question })
+      });
+      if (!res.ok) throw new Error("서버 오류");
+      const { answer } = await res.json();
+      appendMessage("bot", answer);
+    } catch (err) {
+      console.error(err);
+      appendMessage("bot", "오류가 발생했습니다.");
+    }
+  }
+
+  sendBtn.addEventListener("click", sendQuestion);
+  chatInput.addEventListener("keydown", e => { if (e.key === "Enter") sendQuestion(); });
+</script>
 {% endblock %}

@@ -1,21 +1,36 @@
-import os
+import os, textwrap
 from datetime import date
 from typing import Any, Dict, List
 
 import motor.motor_asyncio
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Body
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+import motor.motor_asyncio
+from openai import OpenAI
 
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
+
+embedder = SentenceTransformer("BM-K/KoSimCSE-roberta-multitask")
 # ──────────────────── 상수: 아이템 코드 목록
 ITEM_CODES = [
     65201505, 65200805, 65203005, 65203305, 65203105, 65200605,
     65203905, 65201005, 65200505, 65202805, 65204105, 65203505, 65203705
 ]
+JEWELRY_CODES = [65031100, 65031090, 65031080, 65031070, 65032100, 65032090, 65032080, 65032070]
+
+# Lost Ark 공식 CDN 경로 패턴
+CDN_BASE = "https://cdn-lostark.game.onstove.com/efui_iconatlas/use/"
+# 예: use_9_25.png  (실제 번호는 아이템 별 상이 → 임시 플레이스홀더)
+PLACEHOLDER_IMG = CDN_BASE + "use_12_105.png"
+
 # ──────────────────── FastAPI & 템플릿 ────────────────────
-app = FastAPI(title="LoA Dashboard API")
+app = FastAPI(title="LoA Dashboard API")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -26,14 +41,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# OpenAI client
+openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 # ──────────────────── MongoDB (Motor) ────────────────────
 MONGO_URI   = os.getenv("MONGODB_URI")
 DB_NAME     = "lostark"
-COLL_NAME   = "market_items"
+MARKET_COLL  = "market_items"
+JEWELRY_COLL = "jewelry_value"
 
 client      = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
-collection  = client[DB_NAME][COLL_NAME]
+collection  = client[DB_NAME][MARKET_COLL]
+jewelry_collection = client[DB_NAME][JEWELRY_COLL]
 
+db           = client[DB_NAME]
+market_col   = db[MARKET_COLL]
+jewelry_col  = db[JEWELRY_COLL]
+
+posts    = db["community_posts"]  # ← 이 줄을 꼭 추가하세요
 # ──────────────────── Helpers ────────────────────
 
 def build_match_single(code: str, start: date | None, end: date | None) -> Dict[str, Any]:
@@ -53,6 +78,18 @@ def build_match_multi(codes: List[str], start: date | None, end: date | None) ->
         cond.setdefault("date", {})["$lte"] = end.isoformat()
     return cond
 
+async def get_jewelry_items() -> List[Dict[str, Any]]:
+    """JEWELRY_CODES 리스트로부터 jewelry_value 컬렉션에서 메타 조회"""
+    pipeline = [
+        {"$match": {"item_code": {"$in": JEWELRY_CODES}}},
+        {"$group": {"_id": "$item_code", "name": {"$first": "$name"}, "img": {"$first": "$image_url"}}},
+        {"$sort": {"_id": 1}},
+    ]
+    items = []
+    async for doc in jewelry_col.aggregate(pipeline):
+        items.append({"code": doc["_id"], "name": doc["name"], "img": doc["img"]})
+    return items
+
 # ──────────────────── 공통 유틸 ────────────────────
 async def get_items() -> List[Dict[str, Any]]:
     """ITEM_CODES → (code, name, img_url) 리스트 반환"""
@@ -61,7 +98,7 @@ async def get_items() -> List[Dict[str, Any]]:
         {"$group": {"_id": "$item_code", "name": {"$first": "$name"}}},
         {"$sort": {"_id": 1}},
     ]
-    cursor = collection.aggregate(pipeline)
+    cursor = market_col.aggregate(pipeline)
     result = []
     async for doc in cursor:
         code = doc["_id"]
@@ -70,6 +107,64 @@ async def get_items() -> List[Dict[str, Any]]:
         img_url = "https://cdn-lostark.game.onstove.com/efui_iconatlas/use/use_9_25.png"
         result.append({"code": code, "name": name, "img": img_url})
     return result
+
+# ──────────────────── 유틸: semantic_search ────────────────────
+async def semantic_search(question: str, limit: int = 5):
+    # 1) 질문 임베딩
+    q_emb = embedder.encode(question, convert_to_numpy=True).reshape(1, -1)
+    
+    # 2) embedding 필드가 있는 문서만 불러오기
+    docs = await posts.find(
+        {"embedding": {"$exists": True}},
+        {"title":1, "text":1, "embedding":1, "_id":0}
+    ).to_list(length=10000)
+    
+    if not docs:
+        print("[semantic_search] embedding 필드 문서 없음")
+        return []
+    
+    # 3) numpy 행렬로 쌓고 코사인 유사도 계산
+    embs = np.vstack([d["embedding"] for d in docs])      # shape (N, D)
+    sims = cosine_similarity(q_emb, embs)[0]              # shape (N,)
+    
+    # 4) Top-K 문서 뽑기
+    idxs = sims.argsort()[::-1][:limit]
+    found = [docs[i] for i in idxs]
+    print(f"[semantic_search] question={question!r} → found {len(found)} docs")
+    return found
+
+# ──────────────────── 유틸: rag_qa ────────────────────
+async def rag_qa(question: str, k: int = 5) -> str:
+    # 1) 상위 k개 문서 검색
+    ctx_docs = await semantic_search(question, limit=k)
+    if not ctx_docs:
+        return "⚠️ 관련 문서를 찾지 못했습니다."
+
+    # 2) 컨텍스트 요약 문자열 생성
+    context = "\n".join(f"- {d['title']}: {d['text']}" for d in ctx_docs)
+
+    # 3) ChatGPT 프롬프트 조합
+    prompt = textwrap.dedent(f'''
+    너는 로스트아크 커뮤니티 게시물만 참고해서 대답하는 어시스턴트야.
+    다음 게시물들과 관련 없는 질문이 들어오면 반드시 이렇게 말해:
+    "⚠️ 이 질문은 게시물 내용과 관련성이 낮아 답변할 수 없습니다."
+
+    [게시물 요약]
+    {context}
+
+    [질문]
+    {question}
+
+    [답변 - 한국어로 정확하게 설명하되, 친절하게:]
+    ''')
+
+    # 4) OpenAI Chat Completion 호출 (gpt-4o 사용)
+    chat_res = openai.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2
+    )
+    return chat_res.choices[0].message.content.strip()
 
 # ──────────────────── API: 단일 아이템 ────────────────────
 @app.get("/api/market", response_model=List[Dict[str, Any]])
@@ -87,7 +182,7 @@ async def api_market(
         }},
         {"$sort": {"_id": 1}},
     ]
-    cursor = collection.aggregate(pipeline)
+    cursor = market_col.aggregate(pipeline)
     data = [
         {"date": d["_id"], "avg_price": d["avg_price"], "trade_count": d["trade_count"]}
         async for d in cursor
@@ -109,7 +204,7 @@ async def api_markets():
         }},
         {"$sort": {"_id.date": 1, "_id.item_code": 1}},
     ]
-    cursor = collection.aggregate(pipeline)
+    cursor = market_col.aggregate(pipeline)
     data = [
         {
             "item_code": d["_id"]["item_code"],
@@ -150,7 +245,7 @@ async def api_markets(
         },
         {"$sort": {"_id.date": 1, "_id.item_code": 1}},
     ]
-    cursor = collection.aggregate(pipeline)
+    cursor = market_col.aggregate(pipeline)
     data = [
         {
             "item_code": d["_id"]["item_code"],
@@ -164,33 +259,67 @@ async def api_markets(
         raise HTTPException(status_code=404, detail="No data for given codes")
     return data
 
+# ──────────────────── API: jewelry single ────────────────────
+@app.get("/api/jewelry", response_model=List[Dict[str, Any]])
+async def api_jewelry(
+    code: int = Query(..., description="item_code (e.g. 65031100)"),
+):
+    """단일 보석 아이템: 날짜별 평균 가격(avg_value) · 거래 횟수(count)"""
+    pipeline = [
+        {"$match": {"item_code": code}},
+        {"$group": {
+            "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$date"}},
+            "avg_value": {"$avg": "$price"},
+            "count": {"$sum": 1}
+        }},
+        {"$sort": {"_id": 1}},
+    ]
+    data = []
+    async for d in jewelry_col.aggregate(pipeline):
+        data.append({"date": d["_id"], "avg_value": d["avg_value"], "count": d["count"]})
+    if not data:
+        raise HTTPException(status_code=404, detail="No jewelry data for given code")
+    return data
+
+# ─── RAG 챗봇 엔드포인트 ─────────────────
+
+@app.post("/api/chat", response_model=Dict[str, str])
+async def api_chat(body: Dict[str, Any] = Body(...)):
+    question = body.get("question")
+    if not question:
+        raise HTTPException(400, "question 필수")
+
+    answer = await rag_qa(question, k=5)
+    return {"answer": answer}
+
 # ──────────────────── 페이지 라우팅 ────────────────────
 @app.get("/")
 async def index(request: Request):
     buttons = [
         {"label": "오늘의 소식", "href": "/news",     "img": "/static/img/news.png"},
         {"label": "그래프 보기", "href": "/graphs",   "img": "/static/img/graphs.png"},
-        {"label": "기능 사용",  "href": "/features", "img": "/static/img/features.png"},
+        {"label": "보석 그래프",  "href": "/jewelrys", "img": "/static/img/jewelrys.png"},
         {"label": "테스트중",  "href": "/testing",  "img": "/static/img/testing.png"},
     ]
     return templates.TemplateResponse("index.html", {"request": request, "buttons": buttons})
 
-@app.get("/graphs")
+@app.get("/graphs", response_class=HTMLResponse)
 async def graphs(request: Request):
     items = await get_items()
     return templates.TemplateResponse("graphs.html", {"request": request,"items": items})
 
-@app.get("/news")
+@app.get("/news", response_class=HTMLResponse)
 async def news(request: Request):
     return templates.TemplateResponse("news.html", {"request": request})
 
-@app.get("/features")
-async def features(request: Request):
-    return templates.TemplateResponse("features.html", {"request": request})
+@app.get("/jewelrys", response_class=HTMLResponse)
+async def jewelryss(request: Request):
+    items = await get_jewelry_items()
+    return templates.TemplateResponse("jewelrys.html", {"request": request, "jewelry_items": items})
 
-@app.get("/testing")
+@app.get("/testing", response_class=HTMLResponse)
 async def testing(request: Request):
     return templates.TemplateResponse("testing.html", {"request": request})
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

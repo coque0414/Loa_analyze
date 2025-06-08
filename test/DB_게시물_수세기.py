@@ -12,7 +12,7 @@ dates = []
 sample_count = 0
 
 # ✅ "keyword" 필드에 "유각" 포함된 문서만 찾기
-query = {'keyword': {'$regex': '유각'}}  # 부분일치 검색
+query = {'keyword': {'$regex': '보석'}}  # 부분일치 검색
 
 print("📌 [샘플 date 문자열 확인]")
 for post in post_col.find(query, {'date': 1, 'keyword': 1}):

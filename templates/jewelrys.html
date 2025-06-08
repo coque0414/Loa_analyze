@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}기능 사용 (Jewelry Multi-Line Chart){% endblock %}
+
+{% block content %}
+<style>
+  body { background: #dfeaf9; }
+  .graph-section { max-width: 1000px; margin: auto; }
+  .graph-section .card-body { background: #fff; }
+
+  /* 아이템 선택 리스트 */
+  .part-select {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1rem;
+    overflow-x: auto;
+    padding: 0.5rem 0;
+  }
+  .part-select::-webkit-scrollbar { height: 6px; }
+  .part-select::-webkit-scrollbar-thumb {
+    background: #ced4da; border-radius: 4px;
+  }
+  .part-item {
+    text-align: center;
+    cursor: pointer;
+  }
+  .part-item input:checked + .card {
+    outline: 3px solid #0d6efd;
+    transform: translateY(-3px);
+    transition: .2s;
+  }
+  .part-item .card {
+    width: 80px; height: 80px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 .25rem .5rem rgba(0,0,0,.05);
+  }
+  .part-item small {
+    display: block; margin-top: .5rem; font-weight: 500;
+  }
+</style>
+
+<div class="graph-section">
+  <!-- ① Jewelry 아이템 선택 -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <h6 class="fw-bold mb-3">Choose Jewelry</h6>
+      <div class="part-select">
+        {% for it in jewelry_items %}
+        <label class="part-item">
+          <input type="checkbox"
+                 name="jewelry"
+                 value="{{ it.code }}"
+                 hidden
+                 {% if loop.first or loop.index == 2 %}checked{% endif %}>
+          <div class="card">
+            <img src="{{ it.img }}"
+                 class="img-fluid"
+                 alt="{{ it.name }}">
+          </div>
+          <small>{{ it.name }}</small>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 합쳐진 라인 차트 -->
+  <div class="card">
+    <div class="card-body">
+      <div id="jewelryChart" style="width:100%; height:450px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Plotly.js -->
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<script>
+  // 코드 → 이름 매핑
+  const JEWELRY_MAP = {
+    {% for it in jewelry_items %}
+    "{{ it.code }}": "{{ it.name }}",
+    {% endfor %}
+  };
+
+  // 선택된 코드들로부터 데이터 Fetch
+  async function fetchPrice(code) {
+    const res = await fetch(`/api/jewelry?code=${code}`);
+    if (!res.ok) throw new Error(`No data for ${code}`);
+    return res.json();
+  }
+
+  // 차트 업데이트
+  async function updateChart() {
+    // 체크된 아이템 코드들
+    const codes = Array.from(
+      document.querySelectorAll('input[name="jewelry"]:checked')
+    ).map(el => el.value);
+
+    const container = document.getElementById('jewelryChart');
+    if (codes.length === 0) {
+      Plotly.purge(container);
+      container.innerHTML = '<p class="text-center text-muted">아이템을 하나 이상 선택하세요.</p>';
+      return;
+    }
+
+    // 모든 선택된 코드에 대해 fetch
+    const dataList = await Promise.all(
+      codes.map(code => fetchPrice(code).then(data => ({ code, data })))
+    );
+
+    // Plotly trace 배열 생성
+    const traces = dataList.map(({ code, data }) => ({
+      x: data.map(d => d.date),
+      y: data.map(d => d.avg_value),            // ← avg_value 만 사용
+      type: 'scatter',
+      mode: 'lines+markers',
+      name: JEWELRY_MAP[code],
+      line: { width: 2 },
+      marker: { size: 6 }
+    }));
+
+    // 레이아웃 설정
+    const layout = {
+      title: '',
+      yaxis: { title: '가격', rangemode: 'tozero' },
+      legend: { orientation: 'h', x: 0, y: 1.15 },
+      margin: { t: 60, r: 40, b: 60, l: 60 }
+    };
+
+    // 차트 그리기
+    Plotly.react('jewelryChart', traces, layout, { responsive: true });
+  }
+
+  // 체크박스 변경 시마다 차트 업데이트
+  document.querySelectorAll('input[name="jewelry"]').forEach(el =>
+    el.addEventListener('change', updateChart)
+  );
+
+  // 페이지 로드 시 초기 차트
+  window.addEventListener('DOMContentLoaded', updateChart);
+</script>
+{% endblock %}
