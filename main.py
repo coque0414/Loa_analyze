@@ -17,7 +17,18 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 
-embedder = SentenceTransformer("BM-K/KoSimCSE-roberta-multitask")
+# 기존
+# embedder = SentenceTransformer("BM-K/KoSimCSE-roberta-multitask")
+
+embedder = None
+def get_embedder():
+    global embedder
+    if embedder is None:
+        from sentence_transformers import SentenceTransformer
+        # 첫 필요 시점(요청 시)에 로딩
+        embedder = SentenceTransformer("BM-K/KoSimCSE-roberta-multitask")
+    return embedder
+
 # load_dotenv()
 # ──────────────────── 상수: 아이템 코드 목록
 ITEM_CODES = [
@@ -33,7 +44,7 @@ PLACEHOLDER_IMG = CDN_BASE + "use_12_105.png"
 
 # ──────────────────── FastAPI & 템플릿 ────────────────────
 app = FastAPI(title="LoA Dashboard API")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory="static", check_dir=False), name="static")
 templates = Jinja2Templates(directory="templates")
 
 app.add_middleware(
@@ -115,6 +126,7 @@ async def get_items() -> List[Dict[str, Any]]:
 # ──────────────────── 유틸: semantic_search ────────────────────
 async def semantic_search(question: str, limit: int = 5):
     # 1) 질문 임베딩
+    model = get_embedder()
     q_emb = embedder.encode(question, convert_to_numpy=True).reshape(1, -1)
     
     # 2) embedding 필드가 있는 문서만 불러오기
@@ -362,6 +374,10 @@ async def jewelryss(request: Request):
 @app.get("/testing", response_class=HTMLResponse)
 async def testing(request: Request):
     return templates.TemplateResponse("testing.html", {"request": request})
+
+@app.get("/health")
+def health():
+    return {"ok": True}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
