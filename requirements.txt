@@ -37,6 +37,7 @@ motor==3.7.1
 multitasking==0.0.11
 namex==0.0.9
 numpy==2.0.0
+python-dotenv==1.0.1
 openai==1.84.0
 opt_einsum==3.4.0
 optree==0.15.0
