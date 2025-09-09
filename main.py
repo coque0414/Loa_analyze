@@ -1,11 +1,12 @@
 import os, textwrap
 from datetime import date
 from typing import Any, Dict, List
+from dotenv import load_dotenv
 
 import motor.motor_asyncio
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query, Request, Body
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, Query, Request, Body, status
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -17,6 +18,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 
 embedder = SentenceTransformer("BM-K/KoSimCSE-roberta-multitask")
+load_dotenv()
 # ──────────────────── 상수: 아이템 코드 목록
 ITEM_CODES = [
     65201505, 65200805, 65203005, 65203305, 65203105, 65200605,
@@ -58,7 +60,9 @@ db           = client[DB_NAME]
 market_col   = db[MARKET_COLL]
 jewelry_col  = db[JEWELRY_COLL]
 
-posts    = db["community_posts"]  # ← 이 줄을 꼭 추가하세요
+posts        = db["community_posts"]  # ← 이 줄을 꼭 추가하세요
+summary_col  = db["daily_summary"]
+predictions_col  = db["predict_graphs"]
 # ──────────────────── Helpers ────────────────────
 
 def build_match_single(code: str, start: date | None, end: date | None) -> Dict[str, Any]:
@@ -96,7 +100,7 @@ async def get_items() -> List[Dict[str, Any]]:
     pipeline = [
         {"$match": {"item_code": {"$in": ITEM_CODES}}},
         {"$group": {"_id": "$item_code", "name": {"$first": "$name"}}},
-        {"$sort": {"_id": 1}},
+        # {"$sort": {"_id": 1}},
     ]
     cursor = market_col.aggregate(pipeline)
     result = []
@@ -217,6 +221,7 @@ async def api_markets():
     if not data:
         raise HTTPException(status_code=404, detail="No data")
     return data
+
 @app.get("/api/markets", response_model=List[Dict[str, Any]])
 async def api_markets(
     codes: str | None = Query(
@@ -291,6 +296,43 @@ async def api_chat(body: Dict[str, Any] = Body(...)):
 
     answer = await rag_qa(question, k=5)
     return {"answer": answer}
+
+# ──────────────────── 요약문 기능.. ────────────────────
+@app.get("/api/daily_summary")
+async def api_daily_summary(
+    date: str = Query(..., description="예: 2025-06-01"),
+    keyword: str = Query("유각")
+):
+    doc = await summary_col.find_one(
+        {"date": date, "keyword": keyword},
+        {"_id": 0, "summary": 1, "representatives": 1}
+    )
+    if not doc:
+        # 204 No Content – 프론트에서 메시지로 처리
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    # 대표 게시글은 title·url 두 가지만 돌려주면 충분
+    reps = [
+        {"title": r["title"], "url": r["url"]}
+        for r in (doc.get("representatives") or [])[:3]
+    ]
+    return {"summary": doc["summary"], "representatives": reps}
+# ──────────────────── API: 예측 시계열 ────────────────────
+@app.get(
+    "/api/predictions",
+    response_model=List[Dict[str, Any]],
+    summary="item_code에 대한 일주일 예측값 반환"
+)
+async def api_predictions(
+    item_code: int = Query(...,alias="item_code", description="item_code")
+):
+    doc = await predictions_col.find_one(
+        {"item_code": item_code},
+        {"_id": 0,"item_code":1, "predictions": 1}
+    )
+    if not doc or not doc.get("predictions"):
+        raise HTTPException(status_code=404, detail="Predictions not found")
+    return doc["predictions"]
 
 # ──────────────────── 페이지 라우팅 ────────────────────
 @app.get("/")

@@ -1,101 +1,488 @@
-{% extends "base.html" %}
-{% block title %}비밀의 그래프 공간{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}비밀의 그래프 공간{% endblock %} {%
+block content %}
 <style>
-  body{background:#dfeaf9;}
-  .graph-section{max-width:1000px;margin:auto;}
-  .graph-section .card-body{background:#fff;}
+  body {
+    background: #dfeaf9;
+  }
+  .graph-section {
+    max-width: 800px;
+    margin: auto;
+  }
+  .graph-section .card-body {
+    background: #fff;
+  }
   /* ▶️ 아이템 목록이 넘칠 때 수평 스크롤 */
-  .part-select{flex-wrap:nowrap;overflow-x:auto;padding-bottom:.5rem;}
-  .part-select::-webkit-scrollbar{height:16px;}
-  .part-select::-webkit-scrollbar-thumb{background:#ced4da;border-radius:4px;}
-  .part-select::-webkit-scrollbar-track{background:transparent;}
-  .part-item input:checked + .card{outline:3px solid #0d6efd;transform:translateY(-3px);transition:.2s;}
-  .part-item .card{width:80px;height:80px;display:flex;align-items:center;justify-content:center;box-shadow:0 .25rem .5rem rgba(0,0,0,.05);cursor:pointer;}
+  .part-select {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+  .part-select::-webkit-scrollbar {
+    height: 16px;
+  }
+  .part-select::-webkit-scrollbar-thumb {
+    background: #ced4da;
+    border-radius: 4px;
+  }
+  .part-select::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .part-item input:checked + .card {
+    outline: 3px solid #0d6efd;
+    transform: translateY(-3px);
+    transition: 0.2s;
+  }
+  .part-item .card {
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+  }
+  /* 대표 게시글용 카드 그리드 + 페이드인 애니메이션 */
+  .rep-wrap {
+    display: grid;
+    gap: 0.75rem;
+  } /* 카드 간격 */
+  @media (min-width: 768px) {
+    .rep-wrap {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+
+  /* 채팅창 배지 텍스트 줄바꿈 허용 */
+  #chatWindow .badge {
+    display: inline-block;  /* badge도 줄바꿈 허용 */
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-width: 80%;
+  }
+
+  .rep-card {
+    opacity: 0;
+    transform: translateY(15px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .rep-card.show {
+    opacity: 1;
+    transform: none;
+  }
 </style>
 
 <div class="graph-section">
   <!-- 아이템 선택 -->
-  <div class="card mb-3"><div class="card-body">
-    <h6 class="fw-bold mb-3">Choose a part</h6>
-    <div class="d-flex gap-4 part-select">
-      {% for it in items %}
-      <label class="part-item text-center">
-        <input type="radio" name="part" value="{{it.code}}" hidden {% if loop.first %}checked{% endif %}>
-        <div class="card"><img src="{{it.img}}" class="img-fluid"></div>
-        <small class="d-block mt-2">{{it.name}}</small>
-      </label>
-      {% endfor %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <h6 class="fw-bold mb-3">Choose a part</h6>
+      <div class="d-flex gap-4 part-select">
+        {% for it in items %}
+        <label class="part-item text-center">
+          <input
+            type="radio"
+            name="part"
+            value="{{it.code}}"
+            hidden
+            {%
+            if
+            loop.first
+            %}checked{%
+            endif
+            %}
+          />
+          <div class="card"><img src="{{it.img}}" class="img-fluid" /></div>
+          <small class="d-block mt-2">{{it.name}}</small>
+        </label>
+        {% endfor %}
+      </div>
     </div>
-  </div></div>
+  </div>
 
   <!-- plotly 그래프 -->
-  <div class="card"><div class="card-body">
-    <div id="priceChart" style="width:100%;height:420px;"></div>
-  </div></div>
+  <div class="card">
+    <div class="card-body">
+      <div id="priceChart" style="width: 100%; height: 250px"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <div id="predChart" style="width: 100%; height: 300px"></div>
+    </div>
+
+  </div>
 
   <!-- 📅 캘린더(상시 표시) -->
   <!-- flatpickr dark theme (윈도우 달력 느낌) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
-  <div class="card mt-3"><div class="card-body">
-    <div id="calendar" style="max-width:280px;margin:auto;"></div>
-  </div></div></div>
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css"
+  />
+  <div class="card mt-3">
+    <div class="card-body">
+      <div class="row g-0">
+      <!-- LEFT: 캘린더 -->
+      <div class="col-md-5 d-flex">
+        <!-- 흰 배경 카드 -->
+        <div class="w-100">
+          <div id="calendar"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT: 요약 -->
+      <div class="col-md-7 d-flex align-items-center">
+        <div id="summaryBox"
+              class="w-100 fs-5 text-center py-4">
+          해당 날짜를 선택하여<br>
+          <strong>커뮤니티 분위기 요약문</strong>을<br>
+          보실 수 있습니다.
+        </div>
+      </div>
+
+      </div> <!-- /.row -->
+    </div>   <!-- /.card-body -->
+  </div>     <!-- /.card -->
+    <!-- ▶ 캘린더+요약 카드 끝 -->
+
+  <!-- ── 대표 게시글 버튼 리스트 ── -->
+  <div id="repList" class="d-grid gap-2 mt-3"></div>
+  <!-- ── 리스트 끝 ── -->
+
+<div></div>
+
+  <!-- ── 챗봇 UI 시작 ── -->
+  <div class="card mt-4 mb-3">
+    <div class="card-body">
+      <h5 class="card-title text-center">챗봇</h5>
+      <div id="chatWindow"
+            style="height:300px;
+                  overflow-y:auto;
+                  padding:1rem;
+                  border:1px solid #dee2e6;
+                  border-radius:.25rem;
+                  background:#fff;">
+      </div>
+      <div class="input-group mt-3">
+        <input type="text" id="chatInput" class="form-control"
+                placeholder="질문을 입력하세요…" />
+        <button id="sendBtn" class="btn btn-primary">전송</button>
+      </div>
+    </div>
+  </div>
+  <!-- ── 챗봇 UI 끝 ── -->
+
+  <!-- plotly.js CDN -->
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <!-- flatpickr (calendar) -->
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
+  <script>
+    const DEFAULT_CODE = 65200505;
+    let currentKeyword = '유각';
+
+    // divId: 그래프를 그릴 <div> id, dataTraces: 원하는 trace 배열, layout: 레이아웃
+    async function animatePlot(divId, dataTraces, layout) {
+      // 1. y축 범위 계산
+      let allY = [];
+      dataTraces.forEach(trace => {
+        if (trace.y) allY = allY.concat(trace.y);
+      });
+      const minY = Math.min(...allY);
+      const maxY = Math.max(...allY);
+
+      // 2. layout 복사 및 yaxis 범위 고정
+      const fixedLayout = {
+        ...layout,
+        yaxis: {
+          ...layout.yaxis,
+          range: [Math.min(0, minY), maxY * 1.05]  // 약간 위로 여유 줌
+        }
+      };
+
+      // 3. 초기 y=0 으로 설정
+      const initTraces = dataTraces.map(trace => ({
+        ...trace,
+        y: trace.y.map(_ => 0)
+      }));
+
+      // 4. 초기 그래프 그리기
+      await Plotly.newPlot(divId, initTraces, fixedLayout, { responsive: true });
+
+      // 5. 애니메이션 적용
+      Plotly.animate(divId, {
+        data: dataTraces
+      }, {
+        transition: {
+          duration: 800,
+          easing: 'bounce'
+        },
+        frame: {
+          duration: 800,
+          redraw: true
+        }
+      });
+    }
+
+
+
+    async function fetchData(code){
+      const res = await fetch(`/api/market?code=${code}`);
+      if(!res.ok) throw new Error('No data');
+      return res.json();
+    }
+
+    function drawPlot(data){
+      const dates  = data.map(d=>d.date);
+      const prices = data.map(d=>d.avg_price);
+      const trades = data.map(d=>d.trade_count);
+
+      const bar = { x:dates, y:trades, type:'bar', name:'판매량', marker:{color:'#0d6efd'}, yaxis:'y' };
+      const line= { x:dates, y:prices, type:'scatter', mode:'lines+markers', name:'평균가', marker:{size:6}, line:{width:2,color:'#28a745'}, yaxis:'y2' };
+      const layout={
+        title:'날짜별 평균가 · 판매량',
+        yaxis:{title:'판매량',rangemode:'tozero'},
+        yaxis2:{title:'평균가',overlaying:'y',side:'right'},
+        legend:{orientation:'h',x:0,y:1.15},
+        margin:{t:60,r:60,b:60,l:60}
+      };
+      Plotly.react('priceChart',[bar,line],layout);
+    }
+
+    async function fetchPredictions(code) {
+      const res = await fetch(`/api/predictions?item_code=${code}`);
+      if(!res.ok) return [];
+      return res.json();
+    }
+
+    function drawPredPlot(actual, preds) {
+      // 1) 지난 7일치만 자르기
+      const lastWeek = actual.slice(-7);
+      const datesAct = lastWeek.map(d => d.date);
+      const pricesAct= lastWeek.map(d => d.avg_price);
+      const trades   = lastWeek.map(d => d.trade_count);
+
+      // 2) 예측 7일
+      const datesPred  = preds.map(p => p.date);
+      const pricesPred = preds.map(p => p.price_pred);
+
+      // 3) 참고용 판매량 Bar (투명도 낮춤)
+      const traceBar = {
+        x: datesAct,
+        y: trades,
+        type: 'bar',
+        name: '판매량(참고)',
+        marker: { color: '#0d6efd' },
+        opacity: 0.3,
+        yaxis: 'y'     // 왼쪽 축
+      };
+
+      // 4) 실제 평균가 선
+      const traceAct = {
+        x: datesAct,
+        y: pricesAct,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: '평균가(실제)',
+        line:  { color: '#28a745', width: 2 },
+        marker:{ size: 6 },
+        yaxis: 'y2'    // 오른쪽 축
+      };
+
+      // 5) 예측 평균가 점선
+      const tracePred = {
+        x: datesPred,
+        y: pricesPred,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: '평균가(예측)',
+        line: {
+          color: '#ff5733',
+          width: 2,
+          dash: 'dashdot'
+        },
+        marker:{ size: 6 },
+        yaxis: 'y2'
+      };
+
+      // 6) 레이아웃: 왼쪽은 판매량, 오른쪽은 평균가
+      const layout = {
+        title: '지난 주 실 그래프, 다음 주 예측 평균',
+        yaxis: {
+          title: '판매량',
+          rangemode: 'tozero',
+          titlefont: { color: '#0d6efd' },
+          tickfont:  { color: '#0d6efd' }
+        },
+        yaxis2: {
+          title: '평균가',
+          overlaying: 'y',
+          side: 'right',
+          titlefont: { color: '#28a745' },
+          tickfont:  { color: '#28a745' }
+        },
+        legend: { orientation: 'h', x: 0, y: 1.15 },
+        margin: { t:50, r:60, b:50, l:60 }
+      };
+
+      // 7) 렌더링: bar + 실제선 + 예측선
+      Plotly.react('predChart',
+        [ traceBar, traceAct, tracePred ],
+        layout
+      );
+    }
+
+
+
+    async function loadPredChart(code) {
+      try {
+        const [actual, preds] = await Promise.all([
+          fetchData(code),         // 전체 actual
+          fetchPredictions(code)   // 예측
+        ]);
+        drawPredPlot(actual, preds);
+      } catch(e) {
+        console.error(e);
+        Plotly.purge('predChart');
+      }
+    }
+
+
+
+
+    async function loadChart(code){
+      try{ drawPlot(await fetchData(code)); }
+      catch(e){ console.error(e); Plotly.purge('priceChart'); }
+    }
+
+    /* 유틸: 날짜 객체 → 'YYYY-MM-DD' */
+    function fmtDate(d){
+      return d.toISOString().slice(0,10);
+    }
+
+    /* 요약 로더 */
+    async function loadSummary(dateStr){
+      console.log("▶ loadSummary 호출:", dateStr);
+      <!-- const guide = document.getElementById('guideMsg'); -->
+      const box   = document.getElementById('summaryBox');
+      const wrap  = document.getElementById('repList');   // ← repList → wrap
+
+      <!-- guide.style.display = 'none'; -->
+      box.textContent = '불러오는 중…';
+      wrap.innerHTML  = '';
+
+      try{
+        const res = await fetch(
+          `/api/daily_summary?date=${dateStr}` +
+          `&keyword=${encodeURIComponent(currentKeyword)}`
+        );
+        if(res.status === 204){
+          box.textContent = '해당하는 날짜에는 요약이 없습니다.';
+          return;
+        }
+        if(!res.ok) throw new Error();
+
+        const {summary, representatives} = await res.json();
+
+        /* ⭐ 줄넘김 포함, 강조 표시 */
+        box.innerHTML =
+          `해당 날짜의 커뮤니티 유저들의 반응 또는 분위기는<br>
+           <strong>" ${summary} "</strong><br>
+           라고 나타내어집니다.`;
+
+        /* ⭐ 카드 마크업 */
+        wrap.innerHTML = representatives.map((r,i)=>`
+          <div class="card rep-card">
+            <div class="card-body py-3">
+              <a href="${r.url}" target="_blank" class="stretched-link text-decoration-none">
+                ${r.title}
+              </a>
+            </div>
+          </div>
+        `).join('');
+
+        /* ⭐ 순차적 등장 애니메이션 */
+        wrap.querySelectorAll('.rep-card').forEach((el,idx)=>
+          setTimeout(()=>el.classList.add('show'), idx*120)
+        );
+
+      }catch(e){
+        box.textContent = '⚠️ 요약을 불러오지 못했습니다.';
+      }
+    }
+
+
+    document.querySelectorAll('input[name="part"]').forEach(el=>{
+      el.addEventListener('change', ()=>{
+        loadChart(el.value);      // 기존 그래프
+        loadPredChart(el.value);  // ← 예측 그래프도 함께 갱신
+      });
+    });
+
+    window.addEventListener('DOMContentLoaded',()=>{
+      loadChart(DEFAULT_CODE);
+      loadPredChart(DEFAULT_CODE);
+      /* flatpickr 인라인 달력 */
+      flatpickr('#calendar', {
+        inline:true,
+        locale:'ko',
+        defaultDate:new Date(),
+        prevArrow:'◀',
+        nextArrow:'▶',
+
+          // 숫자·화살표만 고정
+        monthSelectorType:'static',
+        onChange:(_, dateStr)=>loadSummary(dateStr),
+        showMonths:1,
+      });
+
+
+      // 3) **챗봇 첫 인사말** 추가**
+      appendMessage("bot", "안녕하세요! 궁금한 것이 있으면 물어보세요!");
+
+    });
+
+    // ── 챗봇 기능 스크립트 (testing.html 복사) ──
+    const chatWindow = document.getElementById("chatWindow");
+    const chatInput  = document.getElementById("chatInput");
+    const sendBtn    = document.getElementById("sendBtn");
+
+    function appendMessage(role, text) {
+      const wrapper = document.createElement("div");
+      wrapper.className = role === "user" ? "text-end mb-2" : "text-start mb-2";
+      wrapper.innerHTML = `<span class="badge ${
+        role === "user" ? "bg-primary" : "bg-secondary"
+      } p-2">${text}</span>`;
+      chatWindow.appendChild(wrapper);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    async function sendQuestion() {
+      const question = chatInput.value.trim();
+      if (!question) return;
+      appendMessage("user", question);
+      chatInput.value = "";
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question })
+        });
+        if (!res.ok) throw new Error("서버 오류");
+        const { answer } = await res.json();
+        appendMessage("bot", answer);
+      } catch (err) {
+        console.error(err);
+        appendMessage("bot", "오류가 발생했습니다.");
+      }
+    }
+
+    sendBtn.addEventListener("click", sendQuestion);
+    chatInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") sendQuestion();
+    });
+
+  </script>
+  {% endblock %}
 </div>
-
-<!-- plotly.js CDN -->
-<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
-<!-- flatpickr (calendar) -->
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
-<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
-<script>
-const DEFAULT_CODE = {{ items[0].code }};
-
-async function fetchData(code){
-  const res = await fetch(`/api/market?code=${code}`);
-  if(!res.ok) throw new Error('No data');
-  return res.json();
-}
-
-function drawPlot(data){
-  const dates  = data.map(d=>d.date);
-  const prices = data.map(d=>d.avg_price);
-  const trades = data.map(d=>d.trade_count);
-
-  const bar = { x:dates, y:trades, type:'bar', name:'판매량', marker:{color:'#0d6efd'}, yaxis:'y' };
-  const line= { x:dates, y:prices, type:'scatter', mode:'lines+markers', name:'평균가', marker:{size:6}, line:{width:2,color:'#28a745'}, yaxis:'y2' };
-  const layout={
-    title:'날짜별 평균가 · 판매량',
-    yaxis:{title:'판매량',rangemode:'tozero'},
-    yaxis2:{title:'평균가',overlaying:'y',side:'right'},
-    legend:{orientation:'h',x:0,y:1.15},
-    margin:{t:60,r:60,b:60,l:60}
-  };
-  Plotly.react('priceChart',[bar,line],layout,{responsive:true});
-}
-
-async function loadChart(code){
-  try{ drawPlot(await fetchData(code)); }
-  catch(e){ console.error(e); Plotly.purge('priceChart'); }
-}
-
-document.querySelectorAll('input[name="part"]').forEach(el=>{
-  el.addEventListener('change',()=>loadChart(el.value));
-});
-
-window.addEventListener('DOMContentLoaded',()=>{
-  loadChart(DEFAULT_CODE);
-  /* flatpickr 인라인 달력 */
-  flatpickr('#calendar', {
-    inline:true,
-    locale:'ko',
-    defaultDate:new Date(),
-    prevArrow:'◀',
-    nextArrow:'▶',
-    monthSelectorType:'static',  // 숫자·화살표만 고정
-    showMonths:1,
-});
-});
-</script>
-{% endblock %}

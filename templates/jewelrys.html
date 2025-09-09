@@ -46,15 +46,9 @@
       <div class="part-select">
         {% for it in jewelry_items %}
         <label class="part-item">
-          <input type="checkbox"
-                 name="jewelry"
-                 value="{{ it.code }}"
-                 hidden
-                 {% if loop.first or loop.index == 2 %}checked{% endif %}>
+          <input type="checkbox" name="jewelry" value="{{ it.code }}" hidden {% if loop.first or loop.index == 2 %}checked{% endif %}>
           <div class="card">
-            <img src="{{ it.img }}"
-                 class="img-fluid"
-                 alt="{{ it.name }}">
+            <img src="{{ it.img }}" class="img-fluid" alt="{{ it.name }}">
           </div>
           <small>{{ it.name }}</small>
         </label>
@@ -69,73 +63,113 @@
       <div id="jewelryChart" style="width:100%; height:450px;"></div>
     </div>
   </div>
+
+  <!-- 캘린더 + 요약 -->
+  <div class="card mt-3">
+    <div class="card-body">
+      <div class="row g-0">
+        <!-- 캘린더 -->
+        <div class="col-md-5 d-flex">
+          <div class="w-100"><div id="calendar"></div></div>
+        </div>
+        <!-- 요약 -->
+        <div class="col-md-7 d-flex align-items-center">
+          <div id="summaryBox" class="w-100 fs-5 text-center py-4">
+            해당 날짜를 선택하여<br>
+            <strong>"보석" 키워드 요약문</strong>을<br>
+            보실 수 있습니다.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 대표 게시글 리스트 -->
+  <div id="repList" class="d-grid gap-2 mt-3"></div>
 </div>
+{% endblock %}
 
-<!-- Plotly.js -->
-<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
-<script>
-  // 코드 → 이름 매핑
-  const JEWELRY_MAP = {
-    {% for it in jewelry_items %}
-    "{{ it.code }}": "{{ it.name }}",
-    {% endfor %}
-  };
+{% block scripts %}
+  <!-- 외부 라이브러리 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css" />
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
 
-  // 선택된 코드들로부터 데이터 Fetch
-  async function fetchPrice(code) {
-    const res = await fetch(`/api/jewelry?code=${code}`);
-    if (!res.ok) throw new Error(`No data for ${code}`);
-    return res.json();
-  }
-
-  // 차트 업데이트
-  async function updateChart() {
-    // 체크된 아이템 코드들
-    const codes = Array.from(
-      document.querySelectorAll('input[name="jewelry"]:checked')
-    ).map(el => el.value);
-
-    const container = document.getElementById('jewelryChart');
-    if (codes.length === 0) {
-      Plotly.purge(container);
-      container.innerHTML = '<p class="text-center text-muted">아이템을 하나 이상 선택하세요.</p>';
-      return;
+  <script>
+    // 선택된 보석 코드로 차트 데이터 불러오기 (FastAPI /api/jewelry endpoint 사용)
+    async function loadChart() {
+      const selected = Array.from(document.querySelectorAll('input[name="jewelry"]:checked'))
+        .map(el => el.value);
+      if (selected.length === 0) {
+        Plotly.newPlot('jewelryChart', [], { margin: { t: 20, b: 40 }, responsive: true });
+        return;
+      }
+      try {
+        // 각 코드별 데이터 Fetch
+        const promises = selected.map(code =>
+          fetch(`/api/jewelry?code=${code}`)
+            .then(res => res.json())
+            .then(data => ({ code, data }))
+        );
+        const results = await Promise.all(promises);
+        // Plotly용 trace 생성
+        const traces = results.map(({ code, data }) => {
+          const dates = data.map(d => d.date);
+          const prices = data.map(d => d.avg_value);
+          const label = jewelry_items_map[code] || code;
+          return { x: dates, y: prices, mode: 'lines', name: label };
+        });
+        Plotly.newPlot('jewelryChart', traces, { margin: { t: 20, b: 40 }, responsive: true });
+      } catch (e) {
+        console.error('차트 데이터를 불러오는 중 에러:', e);
+      }
     }
 
-    // 모든 선택된 코드에 대해 fetch
-    const dataList = await Promise.all(
-      codes.map(code => fetchPrice(code).then(data => ({ code, data })))
-    );
+    // 날짜 선택 시 요약 불러오기
+    async function loadSummary(dates) {
+      if (!dates.length) return;
+      const date = dates[0].toISOString().split('T')[0];
+      try {
+        const res = await fetch(`/api/summary?date=${date}&keyword=보석`);
+        if (!res.ok) throw new Error('요약 데이터 없음');
+        const json = await res.json();
+        document.getElementById('summaryBox').innerText = json.summary;
+        // 대표 게시글 로드 (예시)
+        const repRes = await fetch(`/api/summary/posts?date=${date}&keyword=보석`);
+        const posts = await repRes.json();
+        const listEl = document.getElementById('repList');
+        listEl.innerHTML = posts.map(p =>
+          `<button class="btn btn-outline-primary text-start">${p.title}</button>`
+        ).join('');
+      } catch (e) {
+        document.getElementById('summaryBox').innerText = '해당 날짜 요약이 없습니다.';
+        document.getElementById('repList').innerHTML = '';
+      }
+    }
 
-    // Plotly trace 배열 생성
-    const traces = dataList.map(({ code, data }) => ({
-      x: data.map(d => d.date),
-      y: data.map(d => d.avg_value),            // ← avg_value 만 사용
-      type: 'scatter',
-      mode: 'lines+markers',
-      name: JEWELRY_MAP[code],
-      line: { width: 2 },
-      marker: { size: 6 }
-    }));
+    document.addEventListener('DOMContentLoaded', () => {
+      // 보석 코드와 이름 맵 생성
+      window.jewelry_items_map = {};
+      document.querySelectorAll('input[name="jewelry"]').forEach(el => {
+        const label = el.closest('.part-item').querySelector('small').textContent;
+        jewelry_items_map[el.value] = label;
+        el.addEventListener('change', loadChart);
+      });
 
-    // 레이아웃 설정
-    const layout = {
-      title: '',
-      yaxis: { title: '가격', rangemode: 'tozero' },
-      legend: { orientation: 'h', x: 0, y: 1.15 },
-      margin: { t: 60, r: 40, b: 60, l: 60 }
-    };
+      // 초기 차트 로드
+      loadChart();
 
-    // 차트 그리기
-    Plotly.react('jewelryChart', traces, layout, { responsive: true });
-  }
-
-  // 체크박스 변경 시마다 차트 업데이트
-  document.querySelectorAll('input[name="jewelry"]').forEach(el =>
-    el.addEventListener('change', updateChart)
-  );
-
-  // 페이지 로드 시 초기 차트
-  window.addEventListener('DOMContentLoaded', updateChart);
-</script>
+      // flatpickr 캘린더 설정 및 요약 로드
+      flatpickr('#calendar', {
+        inline: true,
+        locale: 'ko',
+        defaultDate: new Date(),
+        prevArrow: '◀',
+        nextArrow: '▶',
+        showMonths: 1,
+        onChange: (_, dates) => loadSummary(dates)
+      });
+    });
+  </script>
 {% endblock %}
