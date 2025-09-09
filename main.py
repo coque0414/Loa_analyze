@@ -39,3 +39,11 @@ async def features(request: Request):
 @app.get("/testing")
 async def testing(request: Request):
     return templates.TemplateResponse("testing.html", {"request": request})
+
+@app.api_route("/", methods=["GET", "HEAD"])
+async def root():
+    return JSONResponse({"ok": True})
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
