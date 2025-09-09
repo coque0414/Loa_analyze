@@ -1,7 +1,7 @@
 import os, textwrap
 from datetime import date
 from typing import Any, Dict, List
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
 import motor.motor_asyncio
 import uvicorn
@@ -18,7 +18,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 
 embedder = SentenceTransformer("BM-K/KoSimCSE-roberta-multitask")
-load_dotenv()
+# load_dotenv()
 # ──────────────────── 상수: 아이템 코드 목록
 ITEM_CODES = [
     65201505, 65200805, 65203005, 65203305, 65203105, 65200605,
