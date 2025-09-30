@@ -1,0 +1,964 @@
+// JSON Schema(검증 규칙) 최소 예시
+// 각인서 예시
+// {
+//   "_id": "engraving:",
+//   "type": "engraving",
+//   "name_ko": "",
+//   "full_name": "유물  각인서",
+//   "category": "유물",
+//   "slot": "목",
+//   "rarity": "유물",
+//   "max_stack": 9999,
+//   "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+//   "levels": [
+//     {
+//       "level": 1,
+//       "description": ""
+//     },
+//     {
+//       "level": 2,
+//       "description": ""
+//     },
+//     {
+//       "level": 3,
+//       "description": ""
+//     }
+//   ],
+//   "effect_summary": "'' 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+//   "price": {
+//     "purchase": 100,
+//     "sell": 1,
+//     "currency": "골드"
+//   },
+//   "aliases": ["", "", ""], // 줄임말
+//   "source": {
+//     "url": "", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+//     "extracted_at": "2025-09-23T12:00:00Z"
+//   },
+//   "updated_at": "2025-09-23T00:00:00Z"
+// }
+
+// 각인서
+{
+  "_id": "engraving:65203405",
+  "type": "engraving",
+  "name_ko": "각성",
+  "full_name": "유물 각성 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "각성기의 재사용 대기시간이 10% 감소하고, 사용 제한 횟수가 1회 증가한다."
+    },
+    {
+      "level": 2,
+      "description": "각성기의 재사용 대기시간이 25% 감소하고, 사용 제한 횟수가 2회 증가한다."
+    },
+    {
+      "level": 3,
+      "description": "각성기의 재사용 대기시간이 50% 감소하고, 사용 제한 횟수가 3회 증가한다."
+    }
+  ],
+  "effect_summary": "각성 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["각성", "각성각인"],
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65203405/",
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65201505",
+  "type": "engraving",
+  "name_ko": "결투의 대가",
+  "full_name": "유물 결투의 대가 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "적에게 주는 피해가 1% 증가하며, 헤드어택 성공 시 피해량이 추가로 3% 증가한다."
+    },
+    {
+      "level": 2,
+      "description": "적에게 주는 피해가 3% 증가하며, 헤드어택 성공 시 피해량이 추가로 7% 증가한다."
+    },
+    {
+      "level": 3,
+      "description": "적에게 주는 피해가 7% 증가하며, 헤드어택 성공 시 피해량이 추가로 15% 증가한다."
+    }
+  ],
+  "effect_summary": "결투의 대가 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["결투", "결대"], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65201505/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65200805",
+  "type": "engraving",
+  "name_ko": "구슬동자",
+  "full_name": "유물 구슬동자 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "적을 타격 시 일정 확률로 자신의 8m 이내에 에테르를 생성한다. (발동 재사용 대기시간 60초)"
+    },
+    {
+      "level": 2,
+      "description": "적을 타격 시 일정 확률로 자신의 8m 이내에 에테르를 생성한다. (발동 재사용 대기시간 30초)"
+    },
+    {
+      "level": 3,
+      "description": "적을 타격 시 일정 확률로 자신의 8m 이내에 에테르를 생성한다. (발동 재사용 대기시간 10초)"
+    }
+  ],
+  "effect_summary": "구슬동자 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["구동"], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65200805/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65201105",
+  "type": "engraving",
+  "name_ko": "급소 타격",
+  "full_name": "유물 급소 타격 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "무력화 공격 시 주는 무력화 수치가 6% 증가한다."
+    },
+    {
+      "level": 2,
+      "description": "무력화 공격 시 주는 무력화 수치가 18% 증가한다."
+    },
+    {
+      "level": 3,
+      "description": "무력화 공격 시 주는 무력화 수치가 36% 증가한다."
+    }
+  ],
+  "effect_summary": "급소 타격 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["급타"], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65201105/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65203005",
+  "type": "engraving",
+  "name_ko": "기습의 대가",
+  "full_name": "유물 기습의 대가 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "적에게 주는 피해가 1% 증가하며, 백어택 성공 시 피해량이 추가로 3% 증가한다."
+    },
+    {
+      "level": 2,
+      "description": "적에게 주는 피해가 3% 증가하며, 백어택 성공 시 피해량이 추가로 7% 증가한다."
+    },
+    {
+      "level": 3,
+      "description": "적에게 주는 피해가 7% 증가하며, 백어택 성공 시 피해량이 추가로 15% 증가한다."
+    }
+  ],
+  "effect_summary": "기습의 대가 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["기습"], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65203005/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65203305",
+  "type": "engraving",
+  "name_ko": "돌격대장",
+  "full_name": "유물 돌격대장 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "기본 이동 속도 증가량 % 의 10% 만큼 적에게 주는 피해량이 증가한다."
+    },
+    {
+      "level": 2,
+      "description": "기본 이동 속도 증가량 % 의 22% 만큼 적에게 주는 피해량이 증가한다."
+    },
+    {
+      "level": 3,
+      "description": "기본 이동 속도 증가량 % 의 45% 만큼 적에게 주는 피해량이 증가한다."
+    }
+  ],
+  "effect_summary": "돌격대장 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["돌격", "돌대"], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65203305/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65203105",
+  "type": "engraving",
+  "name_ko": "마나의 흐름",
+  "full_name": "유물 마나의 흐름 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "이동기 및 기본공격을 제외한 스킬 사용 시 10초 동안 마나 회복 속도가 0.5% 증가하며 (최대 10중첩) 해당 효과가 최대 중첩 도달 시 스킬 재사용 대기시간이 추가로 2% 감소한다. 해당 효과는 스킬 취소에 따른 재사용 대기시간 감소가 적용되는 경우, 스킬 종료 후 적용된다."
+    },
+    {
+      "level": 2,
+      "description": "이동기 및 기본공격을 제외한 스킬 사용 시 10초 동안 마나 회복 속도가 1.2% 증가하며 (최대 10중첩) 해당 효과가 최대 중첩 도달 시 스킬 재사용 대기시간이 추가로 5% 감소한다. 해당 효과는 스킬 취소에 따른 재사용 대기시간 감소가 적용되는 경우, 스킬 종료 후 적용된다."
+    },
+    {
+      "level": 3,
+      "description": "이동기 및 기본공격을 제외한 스킬 사용 시 10초 동안 마나 회복 속도가 2.4% 증가하며 (최대 10중첩) 해당 효과가 최대 중첩 도달 시 스킬 재사용 대기시간이 추가로 8% 감소한다. 해당 효과는 스킬 취소에 따른 재사용 대기시간 감소가 적용되는 경우, 스킬 종료 후 적용된다."
+    }
+  ],
+  "effect_summary": "마나의 흐름 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["마흐"], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65203105/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65200605",
+  "type": "engraving",
+  "name_ko": "슈퍼 차지",
+  "full_name": "유물 슈퍼 차지 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "차지 스킬의 차징 속도가 8% 증가하고, 피해량이 4% 증가한다."
+    },
+    {
+      "level": 2,
+      "description": "차지 스킬의 차징 속도가 20% 증가하고, 피해량이 10% 증가한다."
+    },
+    {
+      "level": 3,
+      "description": "차지 스킬의 차징 속도가 40% 증가하고, 피해량이 20% 증가한다."
+    }
+  ],
+  "effect_summary": "슈퍼 차지 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["슈차"], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65200605/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65203905",
+  "type": "engraving",
+  "name_ko": "아드레날린",
+  "full_name": "유물 아드레날린 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "이동기 및 기본공격을 제외한 스킬 사용 시 6초 동안 공격력이 0.3% 증가하며 (최대 6중첩) 해당 효과가 최대 중첩 도달 시 치명타 적중률이 추가로 5% 증가한다. 해당 효과는 스킬 취소에 따른 재사용 대기시간 감소가 적용되는 경우, 스킬 종료 후 적용된다."
+    },
+    {
+      "level": 2,
+      "description": "이동기 및 기본공격을 제외한 스킬 사용 시 6초 동안 공격력이 0.6% 증가하며 (최대 6중첩) 해당 효과가 최대 중첩 도달 시 치명타 적중률이 추가로 10% 증가한다. 해당 효과는 스킬 취소에 따른 재사용 대기시간 감소가 적용되는 경우, 스킬 종료 후 적용된다."
+    },
+    {
+      "level": 3,
+      "description": "이동기 및 기본공격을 제외한 스킬 사용 시 6초 동안 공격력이 1% 증가하며 (최대 6중첩) 해당 효과가 최대 중첩 도달 시 치명타 적중률이 추가로 15% 증가한다. 해당 효과는 스킬 취소에 따른 재사용 대기시간 감소가 적용되는 경우, 스킬 종료 후 적용된다."
+    }
+  ],
+  "effect_summary": "아드레날린 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["아드"], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65203905/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65200405",
+  "type": "engraving",
+  "name_ko": "안정된 상태",
+  "full_name": "유물 안정된 상태 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "내 생명력이 65% 이상일 때 주는 피해가 3% 증가한다."
+    },
+    {
+      "level": 2,
+      "description": "내 생명력이 65% 이상일 때 주는 피해가 8% 증가한다."
+    },
+    {
+      "level": 3,
+      "description": "내 생명력이 65% 이상일 때 주는 피해가 16% 증가한다."
+    }
+  ],
+  "effect_summary": "안정된 상태 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["안상", "안정"], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65200405/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65201005",
+  "type": "engraving",
+  "name_ko": "예리한 둔기",
+  "full_name": "유물 예리한 둔기 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "치명타 피해량이 10% 증가하지만, 공격 시 일정 확률로 20% 감소된 피해를 준다."
+    },
+    {
+      "level": 2,
+      "description": "치명타 피해량이 25% 증가하지만, 공격 시 일정 확률로 20% 감소된 피해를 준다."
+    },
+    {
+      "level": 3,
+      "description": "치명타 피해량이 50% 증가하지만, 공격 시 일정 확률로 20% 감소된 피해를 준다."
+    }
+  ],
+  "effect_summary": "예리한 둔기 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["예둔"], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65201005/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65200505",
+  "type": "engraving",
+  "name_ko": "원한",
+  "full_name": "유물 원한 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "보스 등급 이상 몬스터에게 주는 피해가 4% 증가하지만, 받는 피해가 20% 증가한다."
+    },
+    {
+      "level": 2,
+      "description": "보스 등급 이상 몬스터에게 주는 피해가 10% 증가하지만, 받는 피해가 20% 증가한다."
+    },
+    {
+      "level": 3,
+      "description": "보스 등급 이상 몬스터에게 주는 피해가 20% 증가하지만, 받는 피해가 20% 증가한다."
+    }
+  ],
+  "effect_summary": "원한 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["원한"], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65200505/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65202805",
+  "type": "engraving",
+  "name_ko": "저주받은 인형",
+  "full_name": "유물 저주받은 인형 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "적에게 주는 피해가 3% 증가하지만, 받는 생명력 회복 효과가 25% 감소한다. (자연 회복 제외)"
+    },
+    {
+      "level": 2,
+      "description": "적에게 주는 피해가 8% 증가하지만, 받는 생명력 회복 효과가 25% 감소한다. (자연 회복 제외)"
+    },
+    {
+      "level": 3,
+      "description": "적에게 주는 피해가 16% 증가하지만, 받는 생명력 회복 효과가 25% 감소한다. (자연 회복 제외)"
+    }
+  ],
+  "effect_summary": "저주받은 인형 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["저받", "", ""], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65202805/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65204105",
+  "type": "engraving",
+  "name_ko": "전문의",
+  "full_name": "유물 전문의 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "자신 및 파티원에게 사용하는 쉴드 및 생명력 회복 효과가 6% 증가하고 대상의 생명력이 50% 이하인 경우 해당 효과가 추가로 3% 증가한다."
+    },
+    {
+      "level": 2,
+      "description": "자신 및 파티원에게 사용하는 쉴드 및 생명력 회복 효과가 14% 증가하고 대상의 생명력이 50% 이하인 경우 해당 효과가 추가로 7% 증가한다."
+    },
+    {
+      "level": 3,
+      "description": "자신 및 파티원에게 사용하는 쉴드 및 생명력 회복 효과가 24% 증가하고 대상의 생명력이 50% 이하인 경우 해당 효과가 추가로 12% 증가한다."
+    }
+  ],
+  "effect_summary": "전문의 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["전문", "", ""], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65204105/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65202105",
+  "type": "engraving",
+  "name_ko": "중갑 착용",
+  "full_name": "유물 중갑 착용 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "모든 방어력이 20% 증가한다. 중갑 착용으로 인해 증가된 방어력은 방어력 감소 효과에 영향받지 않는다."
+    },
+    {
+      "level": 2,
+      "description": "모든 방어력이 50% 증가한다. 중갑 착용으로 인해 증가된 방어력은 방어력 감소 효과에 영향받지 않는다."
+    },
+    {
+      "level": 3,
+      "description": "모든 방어력이 100% 증가한다. 중갑 착용으로 인해 증가된 방어력은 방어력 감소 효과에 영향받지 않는다."
+    }
+  ],
+  "effect_summary": "중갑 착용 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["중갑", "", ""], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65202105/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65203505",
+  "type": "engraving",
+  "name_ko": "질량 증가",
+  "full_name": "유물 질량 증가 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "공격속도가 10% 감소하지만 적에게 주는 피해가 4% 증가한다."
+    },
+    {
+      "level": 2,
+      "description": "공격속도가 10% 감소하지만 적에게 주는 피해가 10% 증가한다."
+    },
+    {
+      "level": 3,
+      "description": "공격속도가 10% 감소하지만 적에게 주는 피해가 18% 증가한다."
+    }
+  ],
+  "effect_summary": "질량 증가 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["질증", "질량", ""], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65203505/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65201205",
+  "type": "engraving",
+  "name_ko": "최대 마나 증가",
+  "full_name": "유물 최대 마나 증가 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "최대 마나가 5% 증가한다."
+    },
+    {
+      "level": 2,
+      "description": "최대 마나가 15% 증가한다."
+    },
+    {
+      "level": 3,
+      "description": "최대 마나가 30% 증가한다."
+    }
+  ],
+  "effect_summary": "최대 마나 증가 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["최마", "최마증", ""], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65201205/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "engraving:65203705",
+  "type": "engraving",
+  "name_ko": "타격의 대가",
+  "full_name": "유물 타격의 대가 각인서",
+  "category": "유물",
+  "slot": "목",
+  "rarity": "유물",
+  "max_stack": 9999,
+  "obtain_restriction": "획득 시 원정대 귀속, 일부 지역 장착 제한 1개",
+  "levels": [
+    {
+      "level": 1,
+      "description": "공격 타입이 백 어택 및 헤드 어택에 해당되지 않는 공격의 피해가 3% 증가한다. 각성기는 해당 효과가 적용되지 않는다."
+    },
+    {
+      "level": 2,
+      "description": "공격 타입이 백 어택 및 헤드 어택에 해당되지 않는 공격의 피해가 8% 증가한다. 각성기는 해당 효과가 적용되지 않는다."
+    },
+    {
+      "level": 3,
+      "description": "공격 타입이 백 어택 및 헤드 어택에 해당되지 않는 공격의 피해가 16% 증가한다. 각성기는 해당 효과가 적용되지 않는다."
+    }
+  ],
+  "effect_summary": "'' 유물 각인서 사용 시 각성 유물 등급 각인 효과의 수치 횟수를 올릴 수 있음",
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["타대", "타격", ""], // 줄임말
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/65203705/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
+    "extracted_at": "2025-09-23T12:00:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+
+// 재련재료 아이템
+{
+  "_id": "material:66102006",
+  "type": "material",
+  "name_ko": "운명의 파괴석",
+  "full_name": "운명의 파괴석",
+  "category": "재련재료",
+  "rarity": "일반",
+  "tier": 4,
+  "description": "혼돈의 힘이 응축된 찬란한 보석.",
+  "tradable": false,
+  "max_stack": 999999,
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["파괴석", "운파석", "운파"],
+  "usage": [
+    "장비 재련 강화에 사용",
+    "기타 제작 재료"
+  ],
+  "sources" : [
+    {
+        "type" : "일일 숙제",
+        "name" : "쿠르잔 전선"
+    },
+    {
+        "type" : "일일 숙제",
+        "name" : "가디언 토벌 - 4티어"
+    }
+  ],
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/66102006/",
+    "extracted_at": "2025-09-23T12:30:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "material:66102106",
+  "type": "material",
+  "name_ko": "운명의 수호석",
+  "full_name": "운명의 수호석",
+  "category": "재련재료",
+  "rarity": "일반",
+  "tier": 4,
+  "description": "조화의 힘이 응축된 찬란한 보석.",
+  "tradable": false,
+  "max_stack": 999999,
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["운수", "수호석", "운수호"],
+  "usage": [
+    "장비 재련 강화에 사용",
+    "기타 제작 재료"
+  ],
+  "sources" : [
+    {
+        "type" : "일일 숙제",
+        "name" : "쿠르잔 전선"
+    },
+    {
+        "type" : "일일 숙제",
+        "name" : "가디언 토벌 - 4티어"
+    }
+  ],
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/66102106/",
+    "extracted_at": "2025-09-23T12:30:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "material:66110225",
+  "type": "material",
+  "name_ko": "운명의 돌파석",
+  "full_name": "운명의 돌파석",
+  "category": "재련재료",
+  "rarity": "일반",
+  "tier": 4,
+  "description": "지혜의 기운을 품고 있는 돌파석.
+    재련에 사용되는 장비를 더욱 강화시킬 수 있다.",
+  "tradable": false,
+  "max_stack": 999999,
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["운돌", "운파석", "돌파석"],
+  "usage": [
+    "장비 재련 강화에 사용",
+  ],
+  "sources" : [
+    {
+        "type" : "일일 숙제",
+        "name" : "가디언 토벌 - 4티어"
+    }
+  ],
+  "source": {
+    "url": "https://lostarkcodex.com/kr/item/66110225/",
+    "extracted_at": "2025-09-23T12:30:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "material:",
+  "type": "material",
+  "name_ko": "",
+  "full_name": "",
+  "category": "재련재료",
+  "rarity": "일반",
+  "tier": 4,
+  "description": "",
+  "tradable": false,
+  "max_stack": 999999,
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["", "", ""],
+  "usage": [
+    "",
+    ""
+  ],
+  "sources" : [
+    {
+        "type" : "",
+        "name" : ""
+    },
+    {
+        "type" : "",
+        "name" : ""
+    }
+  ],
+  "source": {
+    "url": "",
+    "extracted_at": "2025-09-23T12:30:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "material:",
+  "type": "material",
+  "name_ko": "",
+  "full_name": "",
+  "category": "재련재료",
+  "rarity": "일반",
+  "tier": 4,
+  "description": "",
+  "tradable": false,
+  "max_stack": 999999,
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["", "", ""],
+  "usage": [
+    "",
+    ""
+  ],
+  "sources" : [
+    {
+        "type" : "",
+        "name" : ""
+    },
+    {
+        "type" : "",
+        "name" : ""
+    }
+  ],
+  "source": {
+    "url": "",
+    "extracted_at": "2025-09-23T12:30:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "material:",
+  "type": "material",
+  "name_ko": "",
+  "full_name": "",
+  "category": "재련재료",
+  "rarity": "일반",
+  "tier": 4,
+  "description": "",
+  "tradable": false,
+  "max_stack": 999999,
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["", "", ""],
+  "usage": [
+    "",
+    ""
+  ],
+  "sources" : [
+    {
+        "type" : "",
+        "name" : ""
+    },
+    {
+        "type" : "",
+        "name" : ""
+    }
+  ],
+  "source": {
+    "url": "",
+    "extracted_at": "2025-09-23T12:30:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}
+{
+  "_id": "material:",
+  "type": "material",
+  "name_ko": "",
+  "full_name": "",
+  "category": "재련재료",
+  "rarity": "일반",
+  "tier": 4,
+  "description": "",
+  "tradable": false,
+  "max_stack": 999999,
+  "price": {
+    "purchase": 100,
+    "sell": 1,
+    "currency": "골드"
+  },
+  "aliases": ["", "", ""],
+  "usage": [
+    "",
+    ""
+  ],
+  "sources" : [
+    {
+        "type" : "",
+        "name" : ""
+    },
+    {
+        "type" : "",
+        "name" : ""
+    }
+  ],
+  "source": {
+    "url": "",
+    "extracted_at": "2025-09-23T12:30:00Z"
+  },
+  "updated_at": "2025-09-23T00:00:00Z"
+}

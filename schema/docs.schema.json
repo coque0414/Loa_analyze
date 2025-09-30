@@ -1,0 +1,21 @@
+// {
+//   "bsonType": "object",
+//   "required": ["_id", "source", "title", "body", "published_at", "entity_refs", "ingested_at"],
+//   "properties": {
+//     "_id": { "bsonType": "string" },
+//     "source": { "enum": ["youtube","inven","loawa","official","etc"] },
+//     "title": { "bsonType": "string" },
+//     "body": { "bsonType": "string" },
+//     "published_at": { "bsonType": "string" },
+//     "game_version": { "bsonType": "string" },
+//     "language": { "bsonType": "string" },
+//     "entity_refs": {
+//       "bsonType": "array",
+//       "items": { "bsonType": "string" }
+//     },
+//     "url": { "bsonType": "string" },
+//     "chunk_idx": { "bsonType": "int" },
+//     "ingested_at": { "bsonType": "string" }
+//   },
+//   "additionalProperties": true
+// }
