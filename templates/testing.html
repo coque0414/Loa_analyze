@@ -1,15 +1,52 @@
 {% extends "base.html" %}
-{% block title %}테스트 중 – RAG 챗봇{% endblock %}
+{% block title %}테스트 중 – RAG 챗봇 (출처 표시 버전){% endblock %}
 
 {% block content %}
-<!-- ① 이 스타일 블록을 추가 -->
 <style>
-  /* 채팅창 안 .badge 요소가 내용 길이에 따라 줄바꿈되도록 */
+  /* ✅ 채팅 메시지 스타일 */
   #chatWindow .badge {
-    display: inline-block;       /* 블록처럼 동작하면서 텍스트 줄바꿈 허용 */
-    white-space: pre-wrap;       /* 공백은 보존하되, 줄바꿈 허용 */
-    word-break: break-word;      /* 단어 중간에도 줄바꿈 가능 */
-    max-width: 80%;              /* 필요하면 최대 너비 설정 */
+    display: inline-block;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-width: 80%;
+  }
+
+  @media (max-width: 576px) {
+    #chatWindow .badge { max-width: 100%; }
+  }
+
+  /* ✅ 로딩 애니메이션 */
+  .loading-dots::after {
+    content: "";
+    animation: dots 1.2s infinite steps(3, end);
+  }
+
+  @keyframes dots {
+    0% { content: ""; }
+    33% { content: "."; }
+    66% { content: ".."; }
+    100% { content: "..."; }
+  }
+
+  /* ✅ 출처 카드 스타일 */
+  .source-card {
+    background-color: #f8f9fa;
+    border-left: 4px solid #0d6efd;
+    padding: .5rem .75rem;
+    margin-top: .5rem;
+    border-radius: .25rem;
+    font-size: 0.9rem;
+  }
+  .source-card a {
+    text-decoration: none;
+    color: #0d6efd;
+    font-weight: 500;
+  }
+  .source-card a:hover {
+    text-decoration: underline;
+  }
+  .source-card small {
+    color: #6c757d;
   }
 </style>
 
@@ -42,37 +79,83 @@
   const chatInput  = document.getElementById("chatInput");
   const sendBtn    = document.getElementById("sendBtn");
 
-  function appendMessage(role, text) {
+  // ✅ 안전한 텍스트 처리
+  function appendMessage(role, text, isLoading=false) {
     const wrapper = document.createElement("div");
     wrapper.className = role === "user" ? "text-end mb-2" : "text-start mb-2";
-    // badge에 바로 줄바꿈 클래스를 주도록 수정했습니다.
-    wrapper.innerHTML = `<span class="badge ${role==="user"?"bg-primary":"bg-secondary"} p-2">${text}</span>`;
+
+    const span = document.createElement("span");
+    span.className = `badge ${role==="user"?"bg-primary":"bg-secondary"} p-2`;
+    if (isLoading) span.classList.add("loading-dots");
+    span.textContent = text;
+
+    wrapper.appendChild(span);
     chatWindow.appendChild(wrapper);
-    chatWindow.scrollTop = chatWindow.scrollHeight;
+
+    span.scrollIntoView({ behavior: "smooth", block: "end" });
+    return wrapper;
+  }
+
+  // ✅ 출처 카드 추가 함수
+  function appendSources(parent, sources=[]) {
+    if (!sources.length) return;
+    const box = document.createElement("div");
+    box.className = "mt-2";
+
+    sources.forEach(src => {
+      const div = document.createElement("div");
+      div.className = "source-card";
+      const icon = src.type === "youtube" ? "▶️"
+                : src.type === "community" ? "💬"
+                : "📄";
+      div.innerHTML = `${icon} <a href="${src.url}" target="_blank">${src.title}</a><br><small>${src.type}</small>`;
+      box.appendChild(div);
+    });
+    parent.appendChild(box);
   }
 
   async function sendQuestion() {
     const question = chatInput.value.trim();
     if (!question) return;
+
     appendMessage("user", question);
     chatInput.value = "";
+    chatInput.focus();
+    sendBtn.disabled = true;
+
+    const loadingMsg = appendMessage("bot", "답변을 불러오는 중", true);
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ question })
       });
+
       if (!res.ok) throw new Error("서버 오류");
-      const { answer } = await res.json();
-      appendMessage("bot", answer);
+
+      const { answer, sources } = await res.json();
+
+      chatWindow.removeChild(chatWindow.lastElementChild);
+
+      // ✅ 답변 메시지와 출처 함께 추가
+      const msg = appendMessage("bot", answer);
+      appendSources(msg, sources);
+
     } catch (err) {
       console.error(err);
-      appendMessage("bot", "오류가 발생했습니다.");
+      chatWindow.removeChild(chatWindow.lastElementChild);
+      appendMessage("bot", "⚠️ 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      sendBtn.disabled = false;
     }
   }
-  
-  appendMessage("bot", "안녕하세요! 궁금한 것이 있으면 물어보세요!");
+
+  appendMessage("bot", "안녕하세요! 궁금한 것이 있으면 물어보세요 😊");
+
   sendBtn.addEventListener("click", sendQuestion);
-  chatInput.addEventListener("keydown", e => { if (e.key === "Enter") sendQuestion(); });
+  chatInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") sendQuestion();
+  });
 </script>
 {% endblock %}

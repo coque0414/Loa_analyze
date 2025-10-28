@@ -27,6 +27,8 @@ jewelry_col = db["jewelry_value"]
 summary_col = db["daily_summary"]
 predictions_col = db["predict_graphs"]
 posts_col = db["community_posts"]
+docs_col = db["docs_schema"]
+maps_col = db["docs_map"]
 
 async def get_items(limit: int | None = None):
     """
