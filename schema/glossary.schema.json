@@ -69,7 +69,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["각성", "각성각인"],
+  "aliases": ["각성", "각성각인","유물 각성"],
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65203405/",
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -106,7 +106,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["결투", "결대"], // 줄임말
+  "aliases": ["결투", "결대","유물 결대"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65201505/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -143,7 +143,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["구동"], // 줄임말
+  "aliases": ["구동", "유물 구동"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65200805/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -180,7 +180,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["급타"], // 줄임말
+  "aliases": ["급타","유물 급타"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65201105/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -217,7 +217,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["기습"], // 줄임말
+  "aliases": ["기습","유물 기대"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65203005/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -254,7 +254,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["돌격", "돌대"], // 줄임말
+  "aliases": ["돌격", "돌대","유물 돌대"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65203305/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -291,7 +291,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["마흐"], // 줄임말
+  "aliases": ["마흐","유물 마흐"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65203105/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -328,7 +328,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["슈차"], // 줄임말
+  "aliases": ["슈차","유물 슈차"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65200605/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -365,7 +365,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["아드"], // 줄임말
+  "aliases": ["아드","유물 아드"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65203905/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -402,7 +402,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["안상", "안정"], // 줄임말
+  "aliases": ["안상", "안정","유물 안상","유물 안정"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65200405/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -439,7 +439,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["예둔"], // 줄임말
+  "aliases": ["예둔","유물 예둔"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65201005/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -476,7 +476,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["원한"], // 줄임말
+  "aliases": ["원한","유물 원한"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65200505/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -513,7 +513,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["저받", "", ""], // 줄임말
+  "aliases": ["저받", "유물 저받"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65202805/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -550,7 +550,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["전문", "", ""], // 줄임말
+  "aliases": ["전문", "유물 전문", "유물 전문의"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65204105/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -587,7 +587,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["중갑", "", ""], // 줄임말
+  "aliases": ["중갑", "중착", "유물 중갑","유물 중착"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65202105/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -624,7 +624,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["질증", "질량", ""], // 줄임말
+  "aliases": ["질증", "질량", "유물 질증","유물 질량"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65203505/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -661,7 +661,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["최마", "최마증", ""], // 줄임말
+  "aliases": ["최마", "최마증", "최대마나","유물 최마","유물 최마증","유물 최대마나"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65201205/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"
@@ -698,7 +698,7 @@
     "sell": 1,
     "currency": "골드"
   },
-  "aliases": ["타대", "타격", ""], // 줄임말
+  "aliases": ["타대", "타격", "유물 타대","유물 타격"], // 줄임말
   "source": {
     "url": "https://lostarkcodex.com/kr/item/65203705/", //출처 : 어떤 페이지에서 가져왓는지, 언제스크랩 했는지 저장
     "extracted_at": "2025-09-23T12:00:00Z"

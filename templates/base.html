@@ -10,6 +10,29 @@
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.0/dist/morph/bootstrap.min.css"
   />
+  <style>
+    :root{
+      /* 파스텔 팔레트 (mokoko/kloa 느낌) */
+      --bg: #f7fbfa;
+      --card: #ffffff;
+      --bot: #eef7f4;        /* 봇 말풍선 */
+      --user-grad-a: #8ed1c8;/* 유저 말풍선 그라데이션 */
+      --user-grad-b: #71c4e0;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --accent: #6ec3b5;     /* 버튼/포커스 */
+      --border: #e5e7eb;
+      --shadow: 0 6px 24px rgba(31,41,55,.06);
+    }
+    html,body{background:var(--bg); color:var(--text)}
+    .navbar{
+      background: linear-gradient(90deg, #6ec3b5 0%, #8ed1c8 50%, #71c4e0 100%) !important;
+      box-shadow: var(--shadow);
+    }
+    .navbar .navbar-brand{ font-weight:700 }
+    main.container{ max-width: 980px; } /* 채팅영역 넓게 */
+  </style>
+  
   <!-- 로컬 버전 -->
   <!-- <link rel="stylesheet" href="/static/css/bootstrap.min.css" /> -->
 

@@ -6,7 +6,10 @@ import os
 import asyncio
 import re
 
-from services.db import posts_col, docs_col
+from rapidfuzz import fuzz, process  # pip install rapidfuzz
+from bson import ObjectId
+
+from services.db import posts_col, docs_col, maps_col
 from services.embedder import get_embedder
 from dotenv import load_dotenv
 load_dotenv()
@@ -16,6 +19,16 @@ openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # Simple in-memory cache to avoid reloading embeddings every request.
 # This makes short-lived repeated queries much faster. TTL is configurable.
 _emb_cache = {"embs": None, "docs": None, "loaded_at": 0}
+
+# 지도 이름(gazetteer) 캐시
+_map_cache = {
+    "worlds": None,       # ["아르테미스", ...]
+    "regions": None,      # ["레온하트", ...]
+    "worlds_norm": None,  # 정규화 문자열 리스트
+    "regions_norm": None,
+    "loaded_at": 0,
+}
+
 
 
 def _normalize_doc(raw: dict, source: str) -> dict:
@@ -354,7 +367,7 @@ def compress_context(snippets, max_chars: int = 2000):
     out = []
     cur_len = 0
     for s in snippets:
-        part = f'- {s["title"]} ({s["source"]}, score={s["doc_score"]:.3f}, kw={s["keyword_match"]}): "{s["text"]}"'
+        part = f'- "{s["text"]}"'
         part_len = len(part)
         if cur_len + part_len <= max_chars:
             out.append(part)
@@ -372,13 +385,148 @@ def compress_context(snippets, max_chars: int = 2000):
             break
     return "\n".join(out)
 
-async def rag_qa(question: str, k: int = 5, score_threshold: float = 0.20) -> str:
+def _norm_kor(s: str) -> str:
+    """한글/영문/숫자만 남기고 소문자, 공백/특수문자 제거"""
+    if not s:
+        return ""
+    s = s.strip().lower()
+    s = re.sub(r"\s+", "", s)
+    s = re.sub(r"[^0-9a-z\uac00-\ud7a3]", "", s)
+    return s
+
+async def _ensure_gazetteer(ttl_sec: int = 600):
+    """maps_col에서 world/region 이름 전체를 distinct로 가져와 캐시"""
+    now = time.time()
+    if _map_cache["worlds"] is None or (now - _map_cache["loaded_at"] > ttl_sec):
+        try:
+            worlds = await maps_col.distinct("world.name")
+            regions = await maps_col.distinct("region.name")
+        except Exception:
+            worlds, regions = [], []
+
+        worlds = [w for w in worlds if isinstance(w, str) and w.strip()]
+        regions = [r for r in regions if isinstance(r, str) and r.strip()]
+
+        _map_cache["worlds"] = worlds
+        _map_cache["regions"] = regions
+        _map_cache["worlds_norm"] = [_norm_kor(w) for w in worlds]
+        _map_cache["regions_norm"] = [_norm_kor(r) for r in regions]
+        _map_cache["loaded_at"] = now
+
+def _best_match_by_norm(q_norm: str, norm_list: list[str], cutoff: int = 85):
+    """정규화된 후보(norm_list)에서 q_norm과 부분일치 최고 점수 후보 반환 (idx, score) 또는 None"""
+    if not norm_list:
+        return None
+    res = process.extractOne(q_norm, norm_list, scorer=fuzz.partial_ratio, score_cutoff=cutoff)
+    # res: (match_string, score, index) 형태
+    return (res[2], float(res[1])) if res else None
+
+def _has_map_keyword(t: str) -> bool:
+    t = (t or "").lower()
+    # '지도'가 없어도 위치/구역을 암시하는 단서들
+    kw = ("지도", "맵", "map", "어디", "위치", "구역", "북부", "남부", "동부", "서부", "섬", "지역", "대륙", "마을", "성")
+    return any(k in t for k in kw)
+
+async def _extract_world_region_from_text(text: str) -> tuple[str|None, str|None, dict]:
+    """자연어에서 (world, region) 후보 추출 + 근거 점수"""
+    await _ensure_gazetteer()
+    qn = _norm_kor(text)
+
+    # world/region 각각 베스트 후보 뽑기
+    bw = _best_match_by_norm(qn, _map_cache["worlds_norm"], cutoff=85)
+    br = _best_match_by_norm(qn, _map_cache["regions_norm"], cutoff=85)
+
+    w = _map_cache["worlds"][bw[0]] if bw else None
+    r = _map_cache["regions"][br[0]] if br else None
+    info = {
+        "world_score": bw[1] if bw else 0.0,
+        "region_score": br[1] if br else 0.0,
+        "via": "fuzzy",
+        "had_keyword": _has_map_keyword(text),
+    }
+
+    # 지도 키워드가 있으면 허들을 조금 낮춰서 재시도 (예: 75)
+    if not (w or r) and info["had_keyword"]:
+        bw2 = _best_match_by_norm(qn, _map_cache["worlds_norm"], cutoff=75)
+        br2 = _best_match_by_norm(qn, _map_cache["regions_norm"], cutoff=75)
+        if bw2 and not w:
+            w = _map_cache["worlds"][bw2[0]]
+            info["world_score"] = max(info["world_score"], bw2[1])
+        if br2 and not r:
+            r = _map_cache["regions"][br2[0]]
+            info["region_score"] = max(info["region_score"], br2[1])
+
+    return w, r, info
+
+async def _find_map_doc(world: str|None, region: str|None):
+    """docs_map에서 최신 1건 찾기 (정확매칭 → 느슨한 정규식 순)"""
+    if not (world or region):
+        return None
+    filt = {}
+    if world:  filt["world.name"]  = world
+    if region: filt["region.name"] = region
+    doc = await maps_col.find_one(filt, sort=[("created_at", -1)])
+    if doc:
+        return doc
+
+    # 느슨한 정규식 보완
+    rx = {}
+    if world:  rx["world.name"]  = {"$regex": re.escape(world),  "$options": "i"}
+    if region: rx["region.name"] = {"$regex": re.escape(region), "$options": "i"}
+    if rx:
+        return await maps_col.find_one(rx, sort=[("created_at", -1)])
+    return None
+
+def _map_payload_from_doc(doc: dict, confidence: float, why: dict) -> dict:
+    gid = doc.get("image", {}).get("gridfs_id")
+    gid = str(gid) if not isinstance(gid, dict) else gid.get("$oid") or ""
+    did = str(doc.get("_id", ""))
+
+    return {
+        "type": "map",
+        "doc_id": did,
+        "world": (doc.get("world") or {}).get("name"),
+        "region": (doc.get("region") or {}).get("name"),
+        "image_gridfs_id": gid,
+
+        # ✅ 파일 ID 경로(가장 안전)
+        "image_url": f"/api/maps/file/{gid}",
+
+        # 보조
+        "image_url_bydoc": f"/api/maps/bydoc/{did}",
+
+        "source": doc.get("source") or {},
+        "confidence": float(confidence),
+        "reason": why,
+    }
+
+async def maybe_answer_with_map(question: str) -> dict|None:
+    """
+    자연어가 지도 의도/정보로 해석되면 docs_map에서 찾아서 payload 반환.
+    아니면 None 반환.
+    """
+    w, r, why = await _extract_world_region_from_text(question)
+
+    # 오발화 방지: 명시 키워드가 없으면 비교적 높은 매칭일 때만 지도 응답
+    if not why["had_keyword"]:
+        if not (why["world_score"] >= 90 and why["region_score"] >= 88):
+            return None
+
+    doc = await _find_map_doc(w, r)
+    if not doc:
+        return None
+
+    # confidence = world/region 스코어 중 큰 값 (0~100)
+    conf = max(why.get("world_score", 0.0), why.get("region_score", 0.0))
+    return _map_payload_from_doc(doc, conf, why)
+
+async def rag_qa(question: str, k: int = 5, score_threshold: float = 0.35):
     """
     score_threshold: 최고 유사도가 이 값 미만이면 '관련성 낮음'으로 처리.
     """
     ctx_docs = await semantic_search(question, limit=k)
     if not ctx_docs:
-        return "⚠️ 관련 문서를 찾지 못했습니다."
+        return "죄송해요. 지금 가지고 있는 문서로는 이 질문에 대한 근거를 찾지 못했어요."
 
     # 기존 발췌 대신 질문 기반 스니펫을 먼저 추출하고, 전체 컨텍스트를 압축
     snippets = get_snippets_from_docs(ctx_docs, question, per_doc_sentences=3)
@@ -399,30 +547,35 @@ async def rag_qa(question: str, k: int = 5, score_threshold: float = 0.20) -> st
     # 디버깅/확인용 컨텍스트 문자열 (모델에 전달할 내용) -> compressed 사용
     context = compressed
 
-    # 서버 측 판정: 최고 유사도가 낮으면 거부
-    top_score = ctx_docs[0].get("score", 0.0)
-    if (top_score < score_threshold):
-        return "⚠️ 이 질문은 게시물 또는 문서 내용과 관련성이 낮아 답변할 수 없습니다."
+    # 서버 측 판정: 최고 유사도 및 키워드 매칭 기반 거절
+    top_score = float(ctx_docs[0].get("score", 0.0))
+    kw_docs = sum(1 for d in ctx_docs if d.get("keyword_match"))
+    if (top_score < score_threshold) or (top_score < 0.45 and kw_docs == 0):
+        return (
+            "지금 보유한 문서(공지/가이드 등)에서 확실한 근거를 찾지 못했어요. \n"
+            "또 다른 질문이 있다면 언제든지 환영입니다!"
+        )
 
     # 시스템 메시지: 발췌(인용문)을 반드시 그대로 인용하고 그 문장 근거로 상세히 설명하도록 명시
     system_prompt = textwrap.dedent('''
-    너는 로스트아크 공식 공지와 커뮤니티 문서에 기반해 답변하는 어시스턴트야.
-    반드시 다음을 지켜라:
-    1) 아래에 제공된 각 문서의 '발췌(인용문)'을 그대로 따옴표로 인용하고, 그 인용문을 근거로 질문에 대해 구체적으로 설명하라.
-    2) 인용문에 나온 구체적 내용(숫자/버전/날짜 등)을 그대로 재현하되, 불확실한 내용은 '※ 불확실'로 표기하라.
-    3) 문서 본문 전체가 아닌 제공된 발췌만을 사용해 답변하라(추측 금지).
-    4) 답변 마지막에 사용한 문서 출처(_id, title, source)를 반드시 표시하라.
+    너는 로스트아크 관련 문서를 바탕으로 간결하고 친절하게 한국어로 답하는 조력자다.
+    - 제공된 '발췌' 안에서만 사실을 사용한다(추측/확대해석 금지).
+    - 숫자/날짜/조건은 정확히 보존한다.
+    - 필요하면 1~3개의 짧은 불릿으로 구조화한다.
+    - 파일명/점수/출처 목록 등 메타데이터는 출력하지 않는다.
     ''')
 
     user_prompt = textwrap.dedent(f'''
-    [검색된 문서 발췌(인용) - 압축된 컨텍스트]
+    [근거 발췌]
     {context}
 
     [질문]
     {question}
 
     [요청]
-    위 발췌들만 참고해 한국어로 답변하고, 인용된 문장을 반드시 따옴표로 표시하세요. 마지막에 사용한 문서 출처를 목록으로 표시하세요.
+    위 근거만 사용해 한국어로 간단·명료하고 친절하게 답하세요.
+    필요하면 1~3개의 짧은 불릿으로 정리하세요.
+    근거 밖 정보는 넣지 마세요.
     ''')
 
     # 디버그: 모델 호출 직전 전달되는 컨텍스트 일부를 로깅
@@ -439,6 +592,25 @@ async def rag_qa(question: str, k: int = 5, score_threshold: float = 0.20) -> st
         temperature=0.0
     )
     return chat_res.choices[0].message.content.strip()
+
+async def answer_router(question: str) -> dict:
+    """
+    - 지도 의도/매칭 성공 → {"type":"map", ...}
+    - 그 외 → {"type":"text", "text": "..."}  (rag_qa 결과)
+    """
+    # 1) 지도 먼저 시도
+    try:
+        mp = await maybe_answer_with_map(question)
+        if mp:
+            return mp
+    except Exception as e:
+        # 지도 해석 실패는 조용히 무시하고 텍스트 RAG로
+        print("[WARN] map pipeline failed:", e)
+
+    # 2) 텍스트 RAG
+    txt = await rag_qa(question)
+    return {"type": "text", "text": txt}
+
     
 # async def rag_qa(question: str, k: int = 5) -> str:
 #     ctx_docs = await semantic_search(question, limit=k)
