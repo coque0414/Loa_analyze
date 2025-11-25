@@ -31,7 +31,7 @@ def _looks_like_compare(q: str) -> bool:
            or len(resolve_glossary_pair(q)) >= 2
 
 @api_router.post("/api/chat")
-async def api_chat(payload: ChatIn, request: Request):  # ← request 쓰면 인자로 받기
+async def api_chat(payload: ChatIn, request: Request):
     question = payload.q.strip()
     if is_market_intent(question):
         if _looks_like_compare(question):
