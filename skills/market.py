@@ -6,7 +6,6 @@ from services.db import glossary_col, market_snapshots_col
 from services.loa_api import loa_markets_options, loa_markets_items, loa_market_item_by_code
 
 import re
-from typing import List, Dict, Any
 import asyncio
 import inspect
 
@@ -313,7 +312,7 @@ async def _category_code(category_name: str) -> Optional[int]:
     return code
 
 # 3) 마켓 조회 + 스냅샷 저장
-def _record_snapshot(slug: str, name: str, price: float|int, extra: Dict[str,Any]|None=None):
+async def _record_snapshot(slug: str, name: str, price: float|int, extra: Dict[str,Any]|None=None):
     doc = {
         "slug": slug,
         "name": name,

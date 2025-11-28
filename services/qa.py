@@ -31,7 +31,7 @@ KEYWORD_BOOST = 0.25  # 0.20 → 0.25 (키워드 매칭 더 강화)
 
 # OpenAI 클라이언트 (재시도 로직 포함)
 openai = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
+    api_key=os.getenv("openai_api_key"),
     timeout=30.0,  # 타임아웃 설정
     max_retries=2  # 재시도 횟수
 )
@@ -295,8 +295,10 @@ async def semantic_search(
         })
     
     embs = _emb_cache["embs"]
-    docs = _emb_cache["docs"]
-    
+    base_docs = _emb_cache["docs"]
+    # ✅ 각 문서 dict를 얕은 복사해서 로컬용 리스트 생성
+    docs = [dict(d) for d in base_docs]
+
     # 코사인 유사도 계산
     try:
         q_norm = q_emb / (np.linalg.norm(q_emb, axis=1, keepdims=True) + 1e-12)
@@ -310,35 +312,30 @@ async def semantic_search(
     tokens = _tokenize_korean(question)
     
     for idx, doc in enumerate(docs):
-        title = (doc.get("title") or "").lower()
-        text = (doc.get("text") or "").lower()
-        
-        # 토큰 매칭 카운트
-        match_count = sum(1 for tok in tokens if tok and (tok in title or tok in text))
-        
+        text = doc.get("text", "") or ""
+        match_count = sum(1 for kw in KEYWORDS if kw in text)
         if match_count > 0:
-            # 매칭 개수에 따른 가중치 (최대 3개까지만)
             sims[idx] = min(1.0, sims[idx] + KEYWORD_BOOST * min(match_count, 3))
-            docs[idx]['keyword_match'] = True
+            docs[idx]["keyword_match"] = True
         else:
-            docs[idx]['keyword_match'] = False
-    
-    # 출처별 우대 가중치 적용
+            docs[idx]["keyword_match"] = False
+
+    # 출처 가중치 적용도 docs에 대해 그대로 진행
     for idx, doc in enumerate(docs):
         source = doc.get("source")
         if source == "docs":
             sims[idx] = min(1.0, sims[idx] * DOCS_WEIGHT)
         elif source == "guide":
             sims[idx] = min(1.0, sims[idx] * GUIDE_WEIGHT)
-    
+
     # 상위 N개 선택
     idxs = sims.argsort()[::-1][:limit]
     results = []
     for i in idxs:
-        d = dict(docs[i])
+        d = dict(docs[i])         # 여기서 한 번 더 dict() 써도 ok
         d["score"] = float(sims[i])
         results.append(d)
-    
+
     return results
 
 

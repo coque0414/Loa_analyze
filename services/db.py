@@ -14,6 +14,8 @@ else:
 # 환경변수 우선
 MONGO_URI = os.getenv("MONGODB_URI")
 DB_NAME = os.getenv("DB_NAME")
+if not DB_NAME:
+    raise RuntimeError("DB_NAME 환경변수가 설정되지 않았습니다.")
 
 # 설정 누락 시 경고
 if ("MONGODB_URI" not in os.environ) and ("MONGO_URI" not in os.environ):
