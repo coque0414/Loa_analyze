@@ -1,53 +1,228 @@
-from fastapi import APIRouter, Query, HTTPException, Body, Response, Request
-from typing import Any, Dict, List, Optional
-from datetime import date, datetime, timedelta, timezone
+# routers/api.py
+from fastapi import APIRouter, Query, HTTPException, Response, Request
+from typing import Any, Dict, Optional
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from fastapi.responses import StreamingResponse
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
-
-from services.db import market_col, jewelry_col, summary_col, predictions_col, maps_col, market_snapshots_col
-# from services.qa import rag_qa
-from services.qa import answer_router   # ← rag_qa 대신 이걸 임포트
-from services.utils import build_match_multi, build_match_single  # optional
-
-from skills.island import is_island_intent, answer_island_calendar #로아 모험섬
-from skills.market import answer_market_price, answer_market_compare, is_market_intent, resolve_glossary_pair #로아 마켓(거래소)
 from pydantic import BaseModel
 
+from services.db import market_col, maps_col, market_snapshots_col
+from services.qa import answer_router
+from services.intent_classifier import (
+    get_intent_classifier,
+    log_intent_feedback,
+)
+
+from skills.island import answer_island_calendar
+from skills.market import answer_market_price, answer_market_compare
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+KST = timezone(timedelta(hours=9))
+
+
 class ChatIn(BaseModel):
-    q: Optional[str] = None          # 새 UI가 보내는 키
-    question: Optional[str] = None   # 예전 UI/도구가 보내던 키
+    q: Optional[str] = None
+    question: Optional[str] = None
 
     def text(self) -> str:
         return (self.q or self.question or "").strip()
 
+
 gfs_bucket = AsyncIOMotorGridFSBucket(maps_col.database)
 api_router = APIRouter()
 
-def _looks_like_compare(q: str) -> bool:
-    return any(kw in q for kw in ["비교", ",", "vs", "VS", "와", "과", "랑", "하고"]) \
-           or len(resolve_glossary_pair(q)) >= 2
 
-@api_router.post("/api/chat")
-async def api_chat(payload: ChatIn, request: Request):
-    question = payload.q.strip()
-    if is_market_intent(question):
-        if _looks_like_compare(question):
-            res = await answer_market_compare(question)
+# ============================================================
+# 메인 채팅 엔드포인트
+# ============================================================
+
+@api_router.post("/chat")
+async def chat_endpoint(payload: ChatIn, request: Request):
+    question = payload.text()
+    if not question:
+        raise HTTPException(status_code=400, detail="Empty question")
+    
+    # ─────────────────────────────────────────────
+    # 1) 임베딩 기반 의도 분류
+    # ─────────────────────────────────────────────
+    classifier = get_intent_classifier()
+    intent_result = classifier.classify(question)
+    
+    intent = intent_result["intent"]
+    confidence = intent_result["confidence"]
+    scores = intent_result["scores"]
+    
+    logger.info(f"[Intent] query='{question[:50]}' → {intent} (conf={confidence:.3f})")
+    
+    # ─────────────────────────────────────────────
+    # 2) 의도별 핸들러 라우팅
+    # ─────────────────────────────────────────────
+    actual_handler = intent  # 실제로 처리한 핸들러 (피드백용)
+    success = True
+    response_data = {}
+    
+    try:
+        if intent == "island":
+            response_data = await _handle_island(question)
+        
+        elif intent == "market_compare":
+            response_data = await _handle_market_compare(question)
+        
+        elif intent == "market_price":
+            response_data = await _handle_market_price(question)
+        
+        elif intent == "map":
+            response_data = await _handle_map_or_fallback(question)
+            actual_handler = response_data.get("_handler", "map")
+        
         else:
-            res = await answer_market_price(question)
-        return {
-            "answer": res.get("answer",""),
-            "type": res.get("type","text"),
-            "answer_html": res.get("answer_html"),
-            "items": res.get("items",[])
+            # unknown 또는 general_qa → RAG
+            response_data = await _handle_general_qa(question)
+            actual_handler = "general_qa"
+    
+    except Exception as e:
+        logger.exception(f"Handler error for intent={intent}")
+        success = False
+        response_data = {
+            "answer": "처리 중 오류가 발생했어요. 다시 시도해 주세요.",
+            "type": "error",
         }
+    
+    # ─────────────────────────────────────────────
+    # 3) 피드백 로깅 (비동기, 실패해도 응답에 영향 없음)
+    # ─────────────────────────────────────────────
+    try:
+        await log_intent_feedback(
+            query=question,
+            classified_intent=intent,
+            confidence=confidence,
+            actual_handler=actual_handler,
+            success=success,
+            response_type=response_data.get("type"),
+            extra={"scores": scores},
+        )
+    except Exception:
+        pass  # 로깅 실패는 무시
+    
+    # 내부 필드 제거 후 반환
+    response_data.pop("_handler", None)
+    return response_data
+
+
+# ============================================================
+# 의도별 핸들러 함수들
+# ============================================================
+
+async def _handle_island(question: str) -> Dict[str, Any]:
+    """모험섬 일정 처리"""
+    res = await answer_island_calendar(question)
+    return {
+        "answer": res.get("answer", ""),
+        "type": "island",
+        "answer_html": res.get("answer_html"),
+        "items": res.get("items", []),
+    }
+
+
+async def _handle_market_compare(question: str) -> Dict[str, Any]:
+    """시세 비교 처리"""
+    res = await answer_market_compare(question)
+    return {
+        "answer": res.get("answer", ""),
+        "type": res.get("type", "price_compare"),
+        "answer_html": res.get("answer_html"),
+        "items": res.get("items", []),
+    }
+
+
+async def _handle_market_price(question: str) -> Dict[str, Any]:
+    """단일 시세 조회 처리"""
+    res = await answer_market_price(question)
+    return {
+        "answer": res.get("answer", ""),
+        "type": res.get("type", "price"),
+        "answer_html": res.get("answer_html"),
+        "items": res.get("items", []),
+        "chart_url": res.get("chart_url"),
+    }
+
+
+async def _handle_map_or_fallback(question: str) -> Dict[str, Any]:
+    """지도 처리 (실패 시 RAG로 폴백)"""
+    res = await answer_router(question)
+    
+    if isinstance(res, dict) and res.get("type") == "map":
+        world = (res.get("world") or "").strip()
+        region = (res.get("region") or "").strip()
+        img_rel = res.get("image_url") or res.get("image_url_bydoc") or ""
+        link = (res.get("source") or {}).get("region_url") or img_rel
+        
+        line1 = f"{world}에 있는 {region}의 지도를 보여드리겠습니다!".strip()
+        line3 = "해당 지역의 지도를 보여드렸습니다. 자세한 항목은 링크에서 확인해보세요!"
+        
+        answer_html = f"""
+        <figure style="max-width:420px">
+          <a href="{link}" target="_blank" rel="noopener">
+            <img src="{img_rel}" alt="{world} {region} 지도"
+                 style="width:100%;border-radius:10px;border:1px solid #e5e7eb" />
+          </a>
+          <figcaption style="font-size:12px;color:#6b7280;margin-top:6px">
+            {world} / {region}
+          </figcaption>
+        </figure>
+        <div style="font-size:13px;color:#4b5563;margin-top:6px">{line3}</div>
+        """.strip()
+        
+        return {
+            "answer": f"{line1}\n이미지 클릭 시 원문 지도로 이동합니다.",
+            "type": "map",
+            "image_url": img_rel,
+            "answer_html": answer_html,
+            "world": world,
+            "region": region,
+            "source": res.get("source"),
+            "_handler": "map",
+        }
+    
+    # 지도가 아니면 텍스트 RAG 결과
+    return {
+        "answer": res.get("text", "") if isinstance(res, dict) else str(res),
+        "type": "text",
+        "_handler": "general_qa",  # 폴백됨
+    }
+
+
+async def _handle_general_qa(question: str) -> Dict[str, Any]:
+    """일반 QA (RAG) 처리"""
+    res = await answer_router(question)
+    
+    if isinstance(res, dict):
+        if res.get("type") == "map":
+            # 예상외로 지도가 나온 경우
+            return await _handle_map_or_fallback(question)
+        return {
+            "answer": res.get("text", ""),
+            "type": "text",
+        }
+    
+    return {
+        "answer": str(res),
+        "type": "text",
+    }
+
+
+# ============================================================
+# 기타 API 엔드포인트들
+# ============================================================
 
 @api_router.get("/market")
 async def api_market(code: int = Query(...)):
-    # 기존 로직을 그대로 여기로 옮기면 됨
     pipeline = [
         {"$match": {"item_code": code}},
         {"$group": {
@@ -66,6 +241,7 @@ async def api_market(code: int = Query(...)):
         raise HTTPException(status_code=404, detail="No data")
     return data
 
+
 @api_router.get("/maps/file/{file_id}")
 async def maps_file(file_id: str):
     try:
@@ -73,9 +249,12 @@ async def maps_file(file_id: str):
         data = await stream.read()
     except Exception:
         raise HTTPException(404, "file not found")
-    # contentType 메타를 안 넣었을 수 있으니 기본 png로
-    return Response(content=data, media_type="image/png",
-                    headers={"Cache-Control": "public, max-age=31536000"})
+    return Response(
+        content=data,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=31536000"}
+    )
+
 
 @api_router.get("/maps/bydoc/{doc_id}")
 async def maps_bydoc(doc_id: str):
@@ -87,89 +266,21 @@ async def maps_bydoc(doc_id: str):
         gid = gid["$oid"]
     return await maps_file(str(gid))
 
-@api_router.post("/chat")
-async def api_chat(payload: ChatIn, request: Request):
-    question = payload.text()
-    if not question:
-        raise HTTPException(status_code=400, detail="Empty question")
-        
-    # 모험섬 먼저 처리
-    if is_island_intent(question):
-        res = await answer_island_calendar(question)
-        return {"answer": res["answer"], "type": "island", "answer_html": res.get("answer_html"), "items": res.get("items", [])}
-
-    # 2) ✅ 마켓(거래소) 의도면 여기서 처리 (RAG보다 앞!)
-    if is_market_intent(question):
-        if "," in question:
-            res = await answer_market_compare(question)
-        else:
-            res = await answer_market_price(question)
-        return {
-            "answer": res.get("answer",""),
-            "type": res.get("type","text"),
-            "answer_html": res.get("answer_html"),
-            "items": res.get("items",[]),
-            "chart_url": res.get("chart_url"),
-        }
-
-    # 3) 그 외는 RAG로 answer_router: 지도/텍스트 자동 분기
-    res = await answer_router(question)
-
-    # 텍스트 응답 (하위호환: answer 필드를 유지)
-    if isinstance(res, dict) and res.get("type") == "text":
-        return {"answer": res.get("text", ""), "type": "text", "raw": res}
-
-    # 지도 응답
-    if isinstance(res, dict) and res.get("type") == "map":
-        world = (res.get("world") or "").strip()
-        region = (res.get("region") or "").strip()
-
-        # ✅ 파일 URL 우선(상대경로). 프런트가 같은 오리진으로 호출하므로 그대로 <img src>에 써도 됨
-        img_rel = res.get("image_url") or res.get("image_url_bydoc") or ""
-
-        link = (res.get("source") or {}).get("region_url") or img_rel
-
-        # 원하는 톤의 문장
-        line1 = f"{world}에 있는 {region}의 지도를 보여드리겠습니다!".strip()
-        line2 = "이미지 클릭 시 원문 지도로 이동합니다."
-        line3 = "해당 지역의 지도를 보여드렸습니다. 자세한 항목은 링크에서 확인해보세요!"
-
-        answer_html = f"""
-        <figure style="max-width:420px">
-          <a href="{link}" target="_blank" rel="noopener">
-            <img src="{img_rel}" alt="{world} {region} 지도"
-                 style="width:100%;border-radius:10px;border:1px solid #e5e7eb" />
-          </a>
-          <figcaption style="font-size:12px;color:#6b7280;margin-top:6px">
-            {world} / {region}
-          </figcaption>
-        </figure>
-        <div style="font-size:13px;color:#4b5563;margin-top:6px">{line3}</div>
-        """.strip()
-
-        return {
-            "answer": f"{line1}\n{line2}",
-            "type": "map",
-            "image_url": img_rel,      # 상대경로
-            "answer_html": answer_html,
-            "world": world, "region": region,
-            "source": res.get("source"),
-            "raw": res,
-        }
-
-    # 예외 케이스
-    return {"answer": str(res)}
 
 @api_router.get("/market/price")
-async def api_market_price(q: str):
+async def api_market_price_get(q: str):
     return await answer_market_price(q)
-    #http://localhost:8000/api/market/price?q=원한 유각 가격
 
-#차트 라우트(마켓용으로 쓰는것)
+
+@api_router.get("/market/compare")
+async def api_market_compare_get(q: str):
+    return await answer_market_compare(q)
+
+
 @api_router.get("/charts/price")
 async def charts_price(slugs: str, days: int = 7):
     import matplotlib.pyplot as plt
-    KST = timezone(timedelta(hours=9))
+    
     now = datetime.now(KST)
     start = now - timedelta(days=max(1, days))
 
@@ -181,26 +292,30 @@ async def charts_price(slugs: str, days: int = 7):
     for slug in slug_list:
         cur = market_snapshots_col.find(
             {"slug": slug, "ts": {"$gte": start}},
-            {"_id":0,"ts":1,"price":1,"name":1}
+            {"_id": 0, "ts": 1, "price": 1, "name": 1}
         ).sort("ts", 1)
         xs, ys, name = [], [], None
-        async for d in cur:  # ✅ Motor 커서면 async for
-            if d.get("price") is None: 
+        async for d in cur:
+            if d.get("price") is None:
                 continue
-            xs.append(d["ts"]); ys.append(float(d["price"]))
-            if not name: name = d.get("name", slug)
+            xs.append(d["ts"])
+            ys.append(float(d["price"]))
+            if not name:
+                name = d.get("name", slug)
         if xs:
             lines.append((name or slug, xs, ys))
 
     if not lines:
         raise HTTPException(404, "no data")
 
-    fig, ax = plt.subplots(figsize=(6,3))
+    fig, ax = plt.subplots(figsize=(6, 3))
     for name, xs, ys in lines:
         ax.plot(xs, ys, label=name)
-    ax.set_xlabel("날짜"); ax.set_ylabel("가격(G)"); ax.legend(); fig.tight_layout()
+    ax.set_xlabel("날짜")
+    ax.set_ylabel("가격(G)")
+    ax.legend()
+    fig.tight_layout()
 
-    from io import BytesIO
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=160)
     plt.close(fig)
@@ -208,18 +323,18 @@ async def charts_price(slugs: str, days: int = 7):
     return StreamingResponse(buf, media_type="image/png")
 
 
-
-
-# 더 많은 엔드포인트는 같은 방식으로 분리
-
-@api_router.get("/loa/islands") #테스트용 get 엔드포인트
+@api_router.get("/loa/islands")
 async def api_islands(period: str = "week"):
-    q = "이번주 골드 모험섬 알려줘" if period=="week" else "이번달 골드 모험섬 알려줘"
+    q = "이번주 골드 모험섬 알려줘" if period == "week" else "이번달 골드 모험섬 알려줘"
     return await answer_island_calendar(q)
-    # http://localhost:8000/api/loa/islands?period=month 으로 들어가서 확인 가능합니다.
 
-@api_router.get("/market/compare")
-async def api_market_compare(q: str):
-    # 예: /market/compare?q=원한 유각, 아드 유각
-    return await answer_market_compare(q)
-    #http://localhost:8000/api/market/compare?q=원한 유각, 아드 유각
+
+# ============================================================
+# 피드백 조회 (관리자용)
+# ============================================================
+
+@api_router.get("/admin/intent-feedback")
+async def get_intent_feedback(days: int = 7, limit: int = 100):
+    """낮은 confidence 쿼리들 조회 (INTENT_EXAMPLES 보강용)"""
+    from services.intent_classifier import get_low_confidence_queries
+    return await get_low_confidence_queries(days=days, limit=limit)

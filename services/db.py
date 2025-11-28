@@ -30,6 +30,7 @@ posts_col = db["community_posts"]
 docs_col = db["docs_schema"]
 maps_col = db["docs_map"]
 glossary_col = db["docs_glossary"]
+guide_col = db["docs_guide"]
 
 market_snapshots_col = db["market_snapshots"]  # 시세 스냅샷 저장
 

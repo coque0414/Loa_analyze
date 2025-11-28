@@ -42,18 +42,40 @@ def _hdr():
 
 async def loa_markets_options():
     async with httpx.AsyncClient(base_url=BASE, headers=_hdr(), timeout=20) as cli:
-        r = await cli.get("/markets/options"); r.raise_for_status(); return r.json()
+        r = await cli.get("/markets/options")
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise RuntimeError(
+                f"markets/options HTTP {r.status_code}: {r.text[:300]}"
+            ) from e
+        return r.json()
 
-async def loa_markets_items(item_name: str, category_code: int|None):
+async def loa_markets_items(item_name: str, category_code: int | None):
     payload = {"ItemName": item_name, "CategoryCode": category_code}
     async with httpx.AsyncClient(base_url=BASE, headers=_hdr(), timeout=20) as cli:
-        r = await cli.post("/markets/items", json=payload); r.raise_for_status(); return r.json()
+        r = await cli.post("/markets/items", json=payload)
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            # 요청 정보도 같이 찍어두면, 디버깅할 때 어디서 틀렸는지 바로 알 수 있음
+            raise RuntimeError(
+                f"markets/items HTTP {r.status_code}: {r.text[:300]} "
+                f"(payload={payload})"
+            ) from e
+        return r.json()
 
 async def loa_market_item_by_code(item_code: int | str):
-    """거래소 아이템 단건 상세 (시세 히스토리 포함)
+    """
+    거래소 아이템 단건 상세 (시세 히스토리 포함)
     응답 예: [ {...option...}, { "Name": "...", "Stats": [ {"Date": "...", "AvgPrice": ...}, ... ] } ]
     """
     async with httpx.AsyncClient(base_url=BASE, headers=_hdr(), timeout=20) as cli:
         r = await cli.get(f"/markets/items/{item_code}")
-        r.raise_for_status()
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise RuntimeError(
+                f"markets/items/{item_code} HTTP {r.status_code}: {r.text[:300]}"
+            ) from e
         return r.json()

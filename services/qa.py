@@ -5,45 +5,103 @@ from openai import OpenAI
 import os
 import asyncio
 import re
+from typing import Optional, List, Dict, Any, Tuple
+from functools import lru_cache
+from collections import defaultdict
 
-from rapidfuzz import fuzz, process  # pip install rapidfuzz
+from rapidfuzz import fuzz, process
 from bson import ObjectId
 
-from services.db import posts_col, docs_col, maps_col
+from services.db import posts_col, docs_col, maps_col, guide_col
 from services.embedder import get_embedder
 from dotenv import load_dotenv
+
 load_dotenv()
 
-openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# ============================================================================
+# 설정 상수
+# ============================================================================
+DEFAULT_CACHE_TTL = 600  # 10분 (30초 → 10분으로 증가)
+DEFAULT_SCORE_THRESHOLD = 0.28  # 0.35 → 0.28로 낮춤 (더 관대한 검색)
+DEFAULT_K_DOCS = 10  # 8 → 10으로 증가 (더 많은 문서 검색)
+MAX_CONTEXT_CHARS = 5000  # 4000 → 5000으로 증가
+DOCS_WEIGHT = float(os.getenv("DOCS_WEIGHT", "1.20"))
+GUIDE_WEIGHT = float(os.getenv("GUIDE_WEIGHT", "1.25"))  # 1.15 → 1.25 (가이드 더 우대)
+KEYWORD_BOOST = 0.25  # 0.20 → 0.25 (키워드 매칭 더 강화)
 
-# Simple in-memory cache to avoid reloading embeddings every request.
-# This makes short-lived repeated queries much faster. TTL is configurable.
-_emb_cache = {"embs": None, "docs": None, "loaded_at": 0}
+# OpenAI 클라이언트 (재시도 로직 포함)
+openai = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    timeout=30.0,  # 타임아웃 설정
+    max_retries=2  # 재시도 횟수
+)
 
-# 지도 이름(gazetteer) 캐시
+# ============================================================================
+# 캐시 구조
+# ============================================================================
+_emb_cache = {
+    "embs": None,
+    "docs": None,
+    "loaded_at": 0,
+    "doc_hash": None  # 문서 변경 감지용
+}
+
 _map_cache = {
-    "worlds": None,       # ["아르테미스", ...]
-    "regions": None,      # ["레온하트", ...]
-    "worlds_norm": None,  # 정규화 문자열 리스트
+    "worlds": None,
+    "regions": None,
+    "worlds_norm": None,
     "regions_norm": None,
     "loaded_at": 0,
 }
 
+# ============================================================================
+# 정규화 및 유틸리티 함수
+# ============================================================================
+
+@lru_cache(maxsize=1000)
+def _norm_kor(s: str) -> str:
+    """한글/영문/숫자만 남기고 소문자화 (캐싱 적용)"""
+    if not s:
+        return ""
+    s = s.strip().lower()
+    s = re.sub(r"\s+", "", s)
+    s = re.sub(r"[^0-9a-z\uac00-\ud7a3]", "", s)
+    return s
+
+
+@lru_cache(maxsize=500)
+def _tokenize_korean(text: str) -> Tuple[str, ...]:
+    """한글 토큰 추출 (캐싱으로 반복 호출 최적화)"""
+    return tuple(re.findall(r"[가-힣A-Za-z0-9]+", text.lower()))
 
 
 def _normalize_doc(raw: dict, source: str) -> dict:
-    title = raw.get("title") or raw.get("name") or raw.get("doc_name") or str(raw.get("_id", ""))
-    # DB에 따라 다양한 본문 필드가 존재하므로 우선순위로 통합해서 text와 body 둘 다 채움
-    text = raw.get("body") or raw.get("text") or raw.get("content") or ""
+    """문서 정규화 - 다양한 필드명 통합"""
+    title = (
+        raw.get("title") or 
+        raw.get("name") or 
+        raw.get("doc_name") or 
+        str(raw.get("_id", ""))
+    )
+    
+    # 본문 우선순위
+    text = (
+        raw.get("body") or 
+        raw.get("text") or 
+        raw.get("content") or 
+        raw.get("doc_body") or 
+        ""
+    )
+    
     emb = raw.get("embedding")
-    # 추가: 원본 id, chunk index, content_type 보존
     doc_id = raw.get("_id") or raw.get("doc_id") or ""
-    chunk_idx = raw.get("chunk_idx") if ("chunk_idx" in raw) else None
-    content_type = raw.get("content_type") or None
+    chunk_idx = raw.get("chunk_idx") if "chunk_idx" in raw else None
+    content_type = raw.get("content_type")
+    
     return {
         "title": title,
         "text": text,
-        "body": text,  # downstream에서 body로 접근하는 경우 대비
+        "body": text,
         "embedding": np.asarray(emb, dtype=np.float32) if emb is not None else None,
         "source": source,
         "doc_id": doc_id,
@@ -52,163 +110,194 @@ def _normalize_doc(raw: dict, source: str) -> dict:
     }
 
 
-# 추가: 동일 문서의 청크들(title에 "#숫자"가 붙은 경우)을 합치는 유틸
-def merge_chunked_docs(docs_list):
+# ============================================================================
+# 문서 청크 병합
+# ============================================================================
+
+def merge_chunked_docs(docs_list: List[Dict]) -> List[Dict]:
     """
-    입력: docs_list: [{title, text, embedding, source, ...}, ...]
-    - title이 "notice: ... #1" 같은 형태면 base title을 추출하여 동일 base+source 그룹을 병합.
-    - 텍스트는 청크 index 순으로 결합(\n\n 구분). embedding은 가능한 경우 평균.
-    - score는 그룹 내 최대, keyword_match는 any 합산.
-    반환: 병합된 docs 리스트
+    동일 문서의 청크들을 병합
+    - doc_id 기반 그룹화 우선
+    - title 패턴 매칭 보조
     """
     if not docs_list:
         return []
 
-    groups = {}
-    # 기존 title 기반 패턴(보조) 유지
-    title_pat = re.compile(r'^(.*?)(?:\s*#\s*(\d+))\s*$', flags=re.IGNORECASE)
+    groups = defaultdict(list)  # dict 대신 defaultdict 사용
+    title_pat = re.compile(r'^(.*?)(?:\s*#\s*(\d+))\s*$', re.IGNORECASE)
+    
     for d in docs_list:
         title = (d.get("title") or "").strip()
         src = d.get("source", "unknown")
         doc_id = str(d.get("doc_id") or d.get("_id") or "")
-        # 우선: doc_id 기반 그룹화(_id에 '#숫자' 포함 여부 확인)
-        if doc_id:
-            if "#" in doc_id:
-                parts = doc_id.split("#")
-                base = parts[0]
-                try:
-                    idx = int(parts[-1])
-                except Exception:
-                    # fallback to chunk_idx field
-                    idx = d.get("chunk_idx")
-            else:
-                base = doc_id
+        
+        # doc_id 기반 그룹화
+        if doc_id and "#" in doc_id:
+            parts = doc_id.split("#")
+            base = parts[0]
+            try:
+                idx = int(parts[-1])
+            except (ValueError, IndexError):
                 idx = d.get("chunk_idx")
         else:
-            # doc_id가 없으면 title 기반으로 시도 (이전 동작)
-            m = title_pat.match(title)
-            if m:
-                base = m.group(1).strip()
-                try:
-                    idx = int(m.group(2))
-                except Exception:
-                    idx = d.get("chunk_idx")
-            else:
-                base = title
-                idx = d.get("chunk_idx")
+            base = doc_id if doc_id else title
+            idx = d.get("chunk_idx")
+            
+            # title 패턴 보조
+            if not doc_id:
+                m = title_pat.match(title)
+                if m:
+                    base = m.group(1).strip()
+                    try:
+                        idx = int(m.group(2))
+                    except (ValueError, TypeError):
+                        pass
+        
         key = (base, src)
-        groups.setdefault(key, []).append((idx, d))
-
+        groups[key].append((idx, d))
+    
     merged = []
     for (base, src), items in groups.items():
         if len(items) == 1:
-            # 단일 항목: text/body 보장
             single = items[0][1]
-            if single.get("text") is None and single.get("body"):
-                single["text"] = single.get("body")
-            if single.get("body") is None and single.get("text"):
-                single["body"] = single.get("text")
-            # 보장: doc_id 존재하면 유지, 없으면 base 사용
+            # text/body 보장
+            single["text"] = single.get("text") or single.get("body") or ""
+            single["body"] = single["text"]
             single["doc_id"] = single.get("doc_id") or base
             merged.append(single)
             continue
-        # 정렬: chunk_idx 우선, 없으면 idx None->앞 배치 처리
-        sorted_items = sorted(items, key=lambda x: (x[0] is None, x[0] if x[0] is not None else 0))
-        # 본문 병합: 각 청크에서 가능한 본문 필드를 우선순위로 취함
-        texts = []
-        for it in sorted_items:
-            chunk = it[1]
-            t = chunk.get("text") or chunk.get("body") or chunk.get("content") or chunk.get("doc_body") or ""
-            texts.append(t)
-        merged_text = "\n\n".join(t for t in texts if t)
-        # embedding 평균 (가능한 경우만)
-        embs = [it[1].get("embedding") for it in sorted_items if it[1].get("embedding") is not None]
+        
+        # 청크 정렬
+        sorted_items = sorted(
+            items, 
+            key=lambda x: (x[0] is None, x[0] if x[0] is not None else 0)
+        )
+        
+        # 본문 병합
+        texts = [
+            (it[1].get("text") or it[1].get("body") or 
+             it[1].get("content") or it[1].get("doc_body") or "")
+            for it in sorted_items
+        ]
+        merged_text = "\n\n".join(filter(None, texts))
+        
+        # 임베딩 평균
+        embs = [it[1].get("embedding") for it in sorted_items 
+                if it[1].get("embedding") is not None]
         emb = None
         if embs:
             try:
                 emb = np.mean(np.vstack(embs), axis=0).astype(np.float32)
             except Exception:
                 emb = embs[0]
-        # score / keyword_match 집계
-        scores = [float(it[1].get("score", 0.0)) for it in sorted_items if it[1].get("score") is not None]
-        keyword_any = any(bool(it[1].get("keyword_match", False)) for it in sorted_items)
-        # doc_id는 base로 설정 (원본 _id의 # 이전 부분)
-        merged_doc = {
+        
+        # score/keyword_match 집계
+        scores = [float(it[1].get("score", 0.0)) for it in sorted_items 
+                  if it[1].get("score") is not None]
+        keyword_any = any(bool(it[1].get("keyword_match", False)) 
+                         for it in sorted_items)
+        
+        merged.append({
             "title": base,
             "text": merged_text,
-            "body": merged_text,  # downstream 호환성 확보
+            "body": merged_text,
             "embedding": emb,
             "source": src,
             "doc_id": base,
             "score": max(scores) if scores else 0.0,
             "keyword_match": keyword_any
-        }
-        merged.append(merged_doc)
+        })
+    
     return merged
 
 
-async def semantic_search(question: str, limit: int = 5, max_docs: int = 10000, cache_ttl: int = 30):
-    """Search semantically across `posts_col` and `docs_col`.
-    Returns: list of docs with added 'score' float field (descending by score).
+# ============================================================================
+# 의미론적 검색
+# ============================================================================
+
+async def semantic_search(
+    question: str,
+    limit: int = DEFAULT_K_DOCS,
+    max_docs: int = 10000,
+    cache_ttl: int = DEFAULT_CACHE_TTL
+) -> List[Dict]:
+    """
+    의미론적 문서 검색
+    
+    개선사항:
+    - 캐시 TTL 증가 (30초 → 10분)
+    - 키워드 매칭 로직 최적화
+    - docs_col, guide_col 우대 가중치 적용
+    - 3개 컬렉션 통합 검색 (posts, docs, guide)
     """
     embedder = get_embedder()
     q_emb = embedder.encode(question, convert_to_numpy=True).astype(np.float32).reshape(1, -1)
-
+    
     now = time.time()
-    # refresh cache when empty or stale
+    
+    # 캐시 갱신 체크
     if _emb_cache["embs"] is None or (now - _emb_cache["loaded_at"] > cache_ttl):
-        # posts_col 사용을 일시 비활성화: posts를 빈 리스트로 설정
+        # posts_col 비활성화 (필요시 주석 해제)
         posts = []
+        
+        # docs_col 로드
         try:
-            # 본문이 body 등에 들어있는 경우를 위해 가능한 본문 필드를 모두 요청
             docs = await docs_col.find(
                 {"embedding": {"$exists": True}},
                 {
-                    "title": 1,
-                    "text": 1,
-                    "body": 1,
-                    "content": 1,
-                    "doc_body": 1,
-                    "body_text": 1,
-                    "embedding": 1,
-                    "_id": 1
+                    "title": 1, "text": 1, "body": 1, "content": 1,
+                    "doc_body": 1, "body_text": 1, "embedding": 1, "_id": 1
                 }
             ).to_list(length=max_docs)
-        except Exception:
+        except Exception as e:
+            print(f"[ERROR] docs_col fetch failed: {e}")
             docs = []
-
+        
+        # guide_col 로드
+        try:
+            guides = await guide_col.find(
+                {"embedding": {"$exists": True}},
+                {
+                    "title": 1, "text": 1, "body": 1, "content": 1,
+                    "doc_body": 1, "body_text": 1, "embedding": 1, "_id": 1
+                }
+            ).to_list(length=max_docs)
+        except Exception as e:
+            print(f"[ERROR] guide_col fetch failed: {e}")
+            guides = []
+        
+        # 3개 컬렉션 통합
         combined = []
-        # posts 처리 루프는 건너뜁니다 (임시 비활성화)
         # for p in posts:
-        #     try:
-        #         combined.append(_normalize_doc(p, source="posts"))
-        #     except Exception:
-        #         continue
+        #     combined.append(_normalize_doc(p, source="posts"))
         for d in docs:
-            try:
-                combined.append(_normalize_doc(d, source="docs"))
-            except Exception:
-                continue
-
+            combined.append(_normalize_doc(d, source="docs"))
+        for g in guides:
+            combined.append(_normalize_doc(g, source="guide"))
+        
         if not combined:
             return []
-
-        # --- 변경: 동일 문서의 청크들을 병합해서 하나의 문서로 합침 ---
+        
+        # 청크 병합
         merged = merge_chunked_docs(combined)
-        # 임베딩이 없는 항목은 제외
         merged_with_emb = [m for m in merged if m.get("embedding") is not None]
+        
         if not merged_with_emb:
             return []
+        
         embs = np.vstack([c["embedding"] for c in merged_with_emb]).astype(np.float32)
-        # 캐시에 병합된 docs 저장
-        _emb_cache["embs"] = embs
-        _emb_cache["docs"] = merged_with_emb
-        _emb_cache["loaded_at"] = now
-
+        
+        # 캐시 업데이트
+        _emb_cache.update({
+            "embs": embs,
+            "docs": merged_with_emb,
+            "loaded_at": now
+        })
+    
     embs = _emb_cache["embs"]
     docs = _emb_cache["docs"]
-
-    # Normalize once and compute dot product for cosine similarity
+    
+    # 코사인 유사도 계산
     try:
         q_norm = q_emb / (np.linalg.norm(q_emb, axis=1, keepdims=True) + 1e-12)
         embs_norm = embs / (np.linalg.norm(embs, axis=1, keepdims=True) + 1e-12)
@@ -216,109 +305,83 @@ async def semantic_search(question: str, limit: int = 5, max_docs: int = 10000, 
     except Exception:
         from sklearn.metrics.pairwise import cosine_similarity
         sims = cosine_similarity(q_emb, embs)[0]
-
-    # --- 추가: 키워드 직접 매칭 보정 (예: "낙원" 같은 단어가 문서에 있으면 score 보정) ---
-    try:
-        # 한글 포함 토큰 인식으로 변경
-        tokens = re.findall(r"[가-힣A-Za-z0-9]+", question.lower())
-        boost = 0.20  # 보정값(필요하면 0.15~0.35로 조정)
-        for idx, doc in enumerate(docs):
-            title = (doc.get("title") or "").lower()
-            text = (doc.get("text") or "").lower()
-            # 부분 문자열 매칭으로 완화하고, 일치 토큰 수를 셈
-            match_count = sum(1 for tok in tokens if tok and (tok in title or tok in text))
-            if match_count > 0:
-                # match_count에 따라 가중치를 주되 과다 보정 방지
-                sims[idx] = min(1.0, sims[idx] + boost * min(match_count, 3))
-                docs[idx]['keyword_match'] = True
-            else:
-                docs[idx]['keyword_match'] = False
-    except Exception:
-        # 보정 실패해도 기본 sims는 유지
-        pass
-    # --- 보정 끝 ---
-
-    # docs_col 우대 가중치 적용 (docs 출처 문서의 score를 더 높임)
-    try:
-        # 환경변수로 조정하려면: float(os.getenv("DOCS_WEIGHT", "1.20"))
-        docs_weight = float(os.getenv("DOCS_WEIGHT", "1.20"))  # 기본 1.20 (20% 우대)
-        for idx, doc in enumerate(docs):
-            if doc.get("source") == "docs":
-                sims[idx] = min(1.0, sims[idx] * docs_weight)
-    except Exception:
-        # 실패해도 검색은 계속 작동
-        pass
-
+    
+    # 키워드 매칭 보정 (최적화: 토큰화 캐싱)
+    tokens = _tokenize_korean(question)
+    
+    for idx, doc in enumerate(docs):
+        title = (doc.get("title") or "").lower()
+        text = (doc.get("text") or "").lower()
+        
+        # 토큰 매칭 카운트
+        match_count = sum(1 for tok in tokens if tok and (tok in title or tok in text))
+        
+        if match_count > 0:
+            # 매칭 개수에 따른 가중치 (최대 3개까지만)
+            sims[idx] = min(1.0, sims[idx] + KEYWORD_BOOST * min(match_count, 3))
+            docs[idx]['keyword_match'] = True
+        else:
+            docs[idx]['keyword_match'] = False
+    
+    # 출처별 우대 가중치 적용
+    for idx, doc in enumerate(docs):
+        source = doc.get("source")
+        if source == "docs":
+            sims[idx] = min(1.0, sims[idx] * DOCS_WEIGHT)
+        elif source == "guide":
+            sims[idx] = min(1.0, sims[idx] * GUIDE_WEIGHT)
+    
+    # 상위 N개 선택
     idxs = sims.argsort()[::-1][:limit]
     results = []
     for i in idxs:
-        d = dict(docs[i])  # copy
+        d = dict(docs[i])
         d["score"] = float(sims[i])
         results.append(d)
+    
     return results
 
 
-def _extract_relevant_excerpt(text: str, question: str, max_sentences: int = 3, max_chars: int = 800):
-    """
-    간단한 발췌 함수:
-    - 문서를 마침표/물음표/느낌표로 분리한 문장들 중 질문 키워드가 포함된 문장들을 모음.
-    - 관련 문장이 없으면 문서 앞부분(요약용)을 반환.
-    - 결과는 최대 max_chars로 자름.
-    """
-    if not text:
-        return ""
-    # 문장 분리(단순 방식). 한국어 특성상 완전하지 않음 — 필요하면 형태소 분석기 권장.
-    sents = re.split(r'(?<=[\.\?!\n])\s+', text)
-    # tokens 인식 정규식 수정
-    tokens = set(re.findall(r"[가-힣A-Za-z0-9]+", question.lower()))
-    matches = []
-    for s in sents:
-        low = s.lower()
-        if any(tok in low for tok in tokens if tok):
-            matches.append(s.strip())
-            if len(matches) >= max_sentences:
-                break
-    if not matches:
-        # 관련 문장이 없으면 앞 문장 몇 개를 사용
-        matches = [s.strip() for s in sents[:max_sentences] if s.strip()]
-    excerpt = " ".join(matches)
-    if len(excerpt) > max_chars:
-        excerpt = excerpt[: max_chars].rstrip() + "…(생략)"
-    return excerpt
+# ============================================================================
+# 스니펫 추출 및 컨텍스트 압축
+# ============================================================================
 
-# 추가: 질문 기반 문장 추출 (Question -> Relevant Sentences)
-def get_snippets_from_docs(ctx_docs, question: str, per_doc_sentences: int = 3):
+def get_snippets_from_docs(
+    ctx_docs: List[Dict],
+    question: str,
+    per_doc_sentences: int = 5  # 3 → 5로 증가 (문서당 더 많은 문장)
+) -> List[Dict]:
     """
-    각 문서(text)에서 질문과 관련도가 높은 문장들을 추출하여
-    스니펫 리스트를 반환.
-    각 스니펫은 dict: {text, title, source, doc_score, keyword_match, sent_score}
+    질문 관련 문장 추출 (최적화)
+    
+    개선:
+    - 토큰화 캐싱
+    - 그룹화 로직 개선 (defaultdict)
     """
     if not ctx_docs:
         return []
-
-    # 한글 포함 토큰 인식으로 변경
-    q_tokens = set(re.findall(r"[가-힣A-Za-z0-9]+", question.lower()))
+    
+    q_tokens = set(_tokenize_korean(question))
     snippets = []
+    
     for d in ctx_docs:
-        # text 필드가 비어있을 수 있으므로 body/content 등도 고려
-        text = d.get("text") or d.get("body") or d.get("content") or d.get("doc_body") or ""
-        # 문장 분리
+        text = (d.get("text") or d.get("body") or 
+                d.get("content") or d.get("doc_body") or "")
+        
         sents = [s.strip() for s in re.split(r'(?<=[\.\?!\n])\s+', text) if s.strip()]
-        # 문장별 점수: (토큰 일치 개수 / 문장 길이 가중치) + 문서 유사도 가중치 + 키워드 부스터
+        
         for s in sents:
             low = s.lower()
-            # 단어 경계 대신 부분 문자열 매칭으로 완화 (한글/조합어 인식 개선)
             match_count = sum(1 for t in q_tokens if t and (t in low))
-            # 부분 문자열 매칭 보정(긴 문장 불리 방지)
-            char_len = max(len(s), 1)
-            # 문장 기반 점수: 토큰 매치 비율
-            sent_score = (match_count / char_len) * 100.0
-            # 보조: 문서 전체 score와 키워드 여부 반영
-            doc_score = float(d.get("score", 0.0))
-            kw = bool(d.get("keyword_match", False))
-            # 최종 점수 조합
-            final_score = sent_score + (doc_score * 50.0) + (15.0 if kw else 0.0)
+            
             if match_count > 0:
+                char_len = max(len(s), 1)
+                sent_score = (match_count / char_len) * 100.0
+                doc_score = float(d.get("score", 0.0))
+                kw = bool(d.get("keyword_match", False))
+                
+                final_score = sent_score + (doc_score * 50.0) + (15.0 if kw else 0.0)
+                
                 snippets.append({
                     "text": s,
                     "title": d.get("title", ""),
@@ -327,312 +390,336 @@ def get_snippets_from_docs(ctx_docs, question: str, per_doc_sentences: int = 3):
                     "keyword_match": kw,
                     "sent_score": final_score
                 })
-        # 관련 문장이 전혀 없으면 문서 앞부분을 후보로 추가
-        # (문서 단위로 이미 스니펫이 존재하는지 정확히 검사)
-        doc_key_title = d.get("title", "")
-        doc_key_source = d.get("source", "unknown")
-        has_snippet_for_doc = any(s["title"] == doc_key_title and s["source"] == doc_key_source for s in snippets)
-        if not has_snippet_for_doc:
-            preview = " ".join(sents[:per_doc_sentences]) if sents else ""
-            if preview:
-                snippets.append({
-                    "text": preview,
-                    "title": d.get("title", ""),
-                    "source": d.get("source", "unknown"),
-                    "doc_score": float(d.get("score", 0.0)),
-                    "keyword_match": d.get("keyword_match", False),
-                    "sent_score": 5.0 + float(d.get("score", 0.0)) * 10.0
-                })
-    # 문장별 상위 N(=per_doc_sentences) 제한: 문서별로 너무 많은 문장 추가 방지
-    # group by (title, source) and keep top per_doc_sentences per doc
-    grouped = {}
+        
+        # 관련 문장이 없으면 문서 앞부분 추가
+        doc_key = (d.get("title", ""), d.get("source", "unknown"))
+        has_snippet = any(
+            (s["title"], s["source"]) == doc_key for s in snippets
+        )
+        
+        if not has_snippet and sents:
+            preview = " ".join(sents[:per_doc_sentences])
+            snippets.append({
+                "text": preview,
+                "title": d.get("title", ""),
+                "source": d.get("source", "unknown"),
+                "doc_score": float(d.get("score", 0.0)),
+                "keyword_match": d.get("keyword_match", False),
+                "sent_score": 5.0 + float(d.get("score", 0.0)) * 10.0
+            })
+    
+    # 그룹화: defaultdict로 최적화
+    grouped = defaultdict(list)
     for s in sorted(snippets, key=lambda x: x["sent_score"], reverse=True):
         key = (s["title"], s["source"])
-        grouped.setdefault(key, []).append(s)
+        grouped[key].append(s)
+    
+    # 문서당 상위 N개만 유지
     final = []
-    for key, items in grouped.items():
+    for items in grouped.values():
         final.extend(items[:per_doc_sentences])
-    # 정렬된 최종 리스트 반환
+    
     return sorted(final, key=lambda x: x["sent_score"], reverse=True)
 
-# 추가: 컨텍스트 압축 로직 (extractive greedy)
-def compress_context(snippets, max_chars: int = 2000):
+
+def compress_context(snippets: List[Dict], max_chars: int = MAX_CONTEXT_CHARS) -> str:
     """
-    snippets: get_snippets_from_docs 반환값 리스트
-    최대 max_chars 까지 중요도 순으로 스니펫을 합쳐 반환.
-    초과 시 마지막 스니펫을 잘라서 표시하고 '…(생략)' 추가.
+    컨텍스트 압축 (extractive greedy)
     """
     if not snippets:
         return ""
+    
     out = []
     cur_len = 0
+    
     for s in snippets:
         part = f'- "{s["text"]}"'
         part_len = len(part)
+        
         if cur_len + part_len <= max_chars:
             out.append(part)
             cur_len += part_len + 1
         else:
-            # 남은 공간에 맞춰 잘라서 추가
             remaining = max_chars - cur_len - 1
             if remaining > 20:
                 trunc = part[:remaining].rstrip()
-                # 안전하게 따옴표 닫힘 보장
                 if trunc.count('"') % 2 == 1:
                     trunc = trunc.rstrip('"')
                 out.append(trunc + "…(생략)")
-            # 더 이상 추가 불가
             break
+    
     return "\n".join(out)
 
-def _norm_kor(s: str) -> str:
-    """한글/영문/숫자만 남기고 소문자, 공백/특수문자 제거"""
-    if not s:
-        return ""
-    s = s.strip().lower()
-    s = re.sub(r"\s+", "", s)
-    s = re.sub(r"[^0-9a-z\uac00-\ud7a3]", "", s)
-    return s
+
+# ============================================================================
+# 지도 관련 함수
+# ============================================================================
 
 async def _ensure_gazetteer(ttl_sec: int = 600):
-    """maps_col에서 world/region 이름 전체를 distinct로 가져와 캐시"""
+    """maps_col에서 world/region 이름 캐싱"""
     now = time.time()
     if _map_cache["worlds"] is None or (now - _map_cache["loaded_at"] > ttl_sec):
         try:
             worlds = await maps_col.distinct("world.name")
             regions = await maps_col.distinct("region.name")
-        except Exception:
+        except Exception as e:
+            print(f"[ERROR] gazetteer load failed: {e}")
             worlds, regions = [], []
-
+        
         worlds = [w for w in worlds if isinstance(w, str) and w.strip()]
         regions = [r for r in regions if isinstance(r, str) and r.strip()]
+        
+        _map_cache.update({
+            "worlds": worlds,
+            "regions": regions,
+            "worlds_norm": [_norm_kor(w) for w in worlds],
+            "regions_norm": [_norm_kor(r) for r in regions],
+            "loaded_at": now
+        })
 
-        _map_cache["worlds"] = worlds
-        _map_cache["regions"] = regions
-        _map_cache["worlds_norm"] = [_norm_kor(w) for w in worlds]
-        _map_cache["regions_norm"] = [_norm_kor(r) for r in regions]
-        _map_cache["loaded_at"] = now
 
-def _best_match_by_norm(q_norm: str, norm_list: list[str], cutoff: int = 85):
-    """정규화된 후보(norm_list)에서 q_norm과 부분일치 최고 점수 후보 반환 (idx, score) 또는 None"""
+def _best_match_by_norm(
+    q_norm: str,
+    norm_list: List[str],
+    cutoff: int = 85
+) -> Optional[Tuple[int, float]]:
+    """정규화된 후보에서 최적 매칭"""
     if not norm_list:
         return None
     res = process.extractOne(q_norm, norm_list, scorer=fuzz.partial_ratio, score_cutoff=cutoff)
-    # res: (match_string, score, index) 형태
     return (res[2], float(res[1])) if res else None
 
-def _has_map_keyword(t: str) -> bool:
-    t = (t or "").lower()
-    # '지도'가 없어도 위치/구역을 암시하는 단서들
-    kw = ("지도", "맵", "map", "어디", "위치", "구역", "북부", "남부", "동부", "서부", "섬", "지역", "대륙", "마을", "성")
-    return any(k in t for k in kw)
 
-async def _extract_world_region_from_text(text: str) -> tuple[str|None, str|None, dict]:
-    """자연어에서 (world, region) 후보 추출 + 근거 점수"""
+def _has_map_keyword(t: str) -> bool:
+    """지도 관련 키워드 존재 여부"""
+    t = (t or "").lower()
+    keywords = (
+        "지도", "맵", "map", "어디", "위치", "구역",
+        "북부", "남부", "동부", "서부", "섬", "지역", "대륙", "마을", "성"
+    )
+    return any(k in t for k in keywords)
+
+
+async def _extract_world_region_from_text(text: str) -> Tuple[Optional[str], Optional[str], Dict]:
+    """자연어에서 (world, region) 추출"""
     await _ensure_gazetteer()
     qn = _norm_kor(text)
-
-    # world/region 각각 베스트 후보 뽑기
+    
     bw = _best_match_by_norm(qn, _map_cache["worlds_norm"], cutoff=85)
     br = _best_match_by_norm(qn, _map_cache["regions_norm"], cutoff=85)
-
+    
     w = _map_cache["worlds"][bw[0]] if bw else None
     r = _map_cache["regions"][br[0]] if br else None
+    
     info = {
         "world_score": bw[1] if bw else 0.0,
         "region_score": br[1] if br else 0.0,
         "via": "fuzzy",
         "had_keyword": _has_map_keyword(text),
     }
-
-    # 지도 키워드가 있으면 허들을 조금 낮춰서 재시도 (예: 75)
+    
+    # 키워드가 있으면 더 낮은 임계값으로 재시도
     if not (w or r) and info["had_keyword"]:
         bw2 = _best_match_by_norm(qn, _map_cache["worlds_norm"], cutoff=75)
         br2 = _best_match_by_norm(qn, _map_cache["regions_norm"], cutoff=75)
+        
         if bw2 and not w:
             w = _map_cache["worlds"][bw2[0]]
             info["world_score"] = max(info["world_score"], bw2[1])
         if br2 and not r:
             r = _map_cache["regions"][br2[0]]
             info["region_score"] = max(info["region_score"], br2[1])
-
+    
     return w, r, info
 
-async def _find_map_doc(world: str|None, region: str|None):
-    """docs_map에서 최신 1건 찾기 (정확매칭 → 느슨한 정규식 순)"""
+
+async def _find_map_doc(world: Optional[str], region: Optional[str]) -> Optional[Dict]:
+    """maps_col에서 지도 문서 검색"""
     if not (world or region):
         return None
+    
     filt = {}
-    if world:  filt["world.name"]  = world
-    if region: filt["region.name"] = region
+    if world:
+        filt["world.name"] = world
+    if region:
+        filt["region.name"] = region
+    
     doc = await maps_col.find_one(filt, sort=[("created_at", -1)])
     if doc:
         return doc
-
-    # 느슨한 정규식 보완
+    
+    # 정규식 보완
     rx = {}
-    if world:  rx["world.name"]  = {"$regex": re.escape(world),  "$options": "i"}
-    if region: rx["region.name"] = {"$regex": re.escape(region), "$options": "i"}
+    if world:
+        rx["world.name"] = {"$regex": re.escape(world), "$options": "i"}
+    if region:
+        rx["region.name"] = {"$regex": re.escape(region), "$options": "i"}
+    
     if rx:
         return await maps_col.find_one(rx, sort=[("created_at", -1)])
+    
     return None
 
-def _map_payload_from_doc(doc: dict, confidence: float, why: dict) -> dict:
+
+def _map_payload_from_doc(doc: Dict, confidence: float, why: Dict) -> Dict:
+    """지도 문서 → API 응답 페이로드"""
     gid = doc.get("image", {}).get("gridfs_id")
     gid = str(gid) if not isinstance(gid, dict) else gid.get("$oid") or ""
     did = str(doc.get("_id", ""))
-
+    
     return {
         "type": "map",
         "doc_id": did,
         "world": (doc.get("world") or {}).get("name"),
         "region": (doc.get("region") or {}).get("name"),
         "image_gridfs_id": gid,
-
-        # ✅ 파일 ID 경로(가장 안전)
         "image_url": f"/api/maps/file/{gid}",
-
-        # 보조
         "image_url_bydoc": f"/api/maps/bydoc/{did}",
-
         "source": doc.get("source") or {},
         "confidence": float(confidence),
         "reason": why,
     }
 
-async def maybe_answer_with_map(question: str) -> dict|None:
+
+async def maybe_answer_with_map(question: str) -> Optional[Dict]:
     """
-    자연어가 지도 의도/정보로 해석되면 docs_map에서 찾아서 payload 반환.
-    아니면 None 반환.
+    지도 의도 감지 및 응답
+    
+    오발화 방지:
+    - 명시 키워드 없으면 높은 매칭 점수 요구
     """
     w, r, why = await _extract_world_region_from_text(question)
-
-    # 오발화 방지: 명시 키워드가 없으면 비교적 높은 매칭일 때만 지도 응답
+    
+    # 오발화 방지
     if not why["had_keyword"]:
         if not (why["world_score"] >= 90 and why["region_score"] >= 88):
             return None
-
+    
     doc = await _find_map_doc(w, r)
     if not doc:
         return None
-
-    # confidence = world/region 스코어 중 큰 값 (0~100)
+    
     conf = max(why.get("world_score", 0.0), why.get("region_score", 0.0))
     return _map_payload_from_doc(doc, conf, why)
 
-async def rag_qa(question: str, k: int = 5, score_threshold: float = 0.35):
+
+# ============================================================================
+# RAG QA
+# ============================================================================
+
+async def rag_qa(
+    question: str,
+    k: int = DEFAULT_K_DOCS,
+    score_threshold: float = DEFAULT_SCORE_THRESHOLD
+) -> str:
     """
-    score_threshold: 최고 유사도가 이 값 미만이면 '관련성 낮음'으로 처리.
+    RAG 기반 질의응답
+    
+    개선사항:
+    - OpenAI API 재시도 로직 (클라이언트 설정)
+    - 타임아웃 설정
+    - 에러 핸들링 강화
+    - 상세한 답변 유도 프롬프트
     """
     ctx_docs = await semantic_search(question, limit=k)
+    
     if not ctx_docs:
         return "죄송해요. 지금 가지고 있는 문서로는 이 질문에 대한 근거를 찾지 못했어요."
-
-    # 기존 발췌 대신 질문 기반 스니펫을 먼저 추출하고, 전체 컨텍스트를 압축
-    snippets = get_snippets_from_docs(ctx_docs, question, per_doc_sentences=3)
-    # 압축된 컨텍스트 (모델 입력용)
-    compressed = compress_context(snippets, max_chars=2000)
-
-    # 발췌 추출: 각 문서에서 질문과 관련된 문장만 뽑아 컨텍스트로 제공
-    excerpts = []
-    for s in snippets:
-        excerpts.append({
-            "title": s["title"],
-            "source": s["source"],
-            "score": s["doc_score"],
-            "keyword_match": s["keyword_match"],
-            "excerpt": s["text"]
-        })
-
-    # 디버깅/확인용 컨텍스트 문자열 (모델에 전달할 내용) -> compressed 사용
-    context = compressed
-
-    # 서버 측 판정: 최고 유사도 및 키워드 매칭 기반 거절
+    
+    # 스니펫 추출 및 압축 (문서당 5문장, 최대 4000자)
+    snippets = get_snippets_from_docs(ctx_docs, question, per_doc_sentences=5)
+    compressed = compress_context(snippets, max_chars=MAX_CONTEXT_CHARS)
+    
+    # 서버 측 판정: 낮은 유사도면 거절
     top_score = float(ctx_docs[0].get("score", 0.0))
     kw_docs = sum(1 for d in ctx_docs if d.get("keyword_match"))
+    
     if (top_score < score_threshold) or (top_score < 0.45 and kw_docs == 0):
         return (
             "지금 보유한 문서(공지/가이드 등)에서 확실한 근거를 찾지 못했어요. \n"
             "또 다른 질문이 있다면 언제든지 환영입니다!"
         )
-
-    # 시스템 메시지: 발췌(인용문)을 반드시 그대로 인용하고 그 문장 근거로 상세히 설명하도록 명시
+    
+    # ✅ 개선된 프롬프트: 상세한 답변 유도
     system_prompt = textwrap.dedent('''
-    너는 로스트아크 관련 문서를 바탕으로 간결하고 친절하게 한국어로 답하는 조력자다.
-    - 제공된 '발췌' 안에서만 사실을 사용한다(추측/확대해석 금지).
-    - 숫자/날짜/조건은 정확히 보존한다.
-    - 필요하면 1~3개의 짧은 불릿으로 구조화한다.
-    - 파일명/점수/출처 목록 등 메타데이터는 출력하지 않는다.
+    너는 로스트아크 전문 가이드 어시스턴트야. 사용자가 게임 플레이에 필요한 정보를 충분히 이해할 수 있도록 상세하게 설명해줘.
+    
+    **핵심 원칙:**
+    1. 제공된 문서의 정보만 사용 (추측 금지)
+    2. 숫자, 날짜, 조건은 정확히 명시
+    3. 단순 나열이 아닌 설명형으로 작성
+    4. 필요시 예시나 배경 설명 추가
+    5. 문서에 있는 내용은 최대한 자세히 풀어서 설명
+    
+    **답변 구조:**
+    - 핵심 답변 (2-3문장)
+    - 상세 설명 (관련 정보를 문단으로 풀어쓰기)
+    - 추가 팁이나 주의사항 (있다면)
+    
+    **금지 사항:**
+    - 파일명, 출처, 점수 등 메타데이터 언급 금지
+    - "문서에 따르면", "발췌에 의하면" 같은 표현 사용 금지
+    - 2줄 이하의 짧은 답변 금지
     ''')
-
+    
     user_prompt = textwrap.dedent(f'''
-    [근거 발췌]
-    {context}
+    [참고 자료]
+    {compressed}
 
-    [질문]
+    [사용자 질문]
     {question}
 
-    [요청]
-    위 근거만 사용해 한국어로 간단·명료하고 친절하게 답하세요.
-    필요하면 1~3개의 짧은 불릿으로 정리하세요.
-    근거 밖 정보는 넣지 마세요.
+    [지시사항]
+    위 참고 자료를 바탕으로 사용자 질문에 대해 상세하고 친절하게 답변해줘.
+    - 단순히 "이렇습니다"로 끝내지 말고, 왜 그런지, 어떻게 하는지 구체적으로 설명해줘.
+    - 문서에 있는 관련 정보는 모두 활용해서 답변을 풍부하게 만들어줘.
+    - 최소 1-2문장 이상으로 작성해줘.
+    - 사용자가 추가 질문 없이도 이해할 수 있도록 충분한 맥락을 제공해줘.
     ''')
+    
+    # 디버그 로그
+    print("=" * 40)
+    print(f"[DEBUG] Top score: {top_score:.3f}, KW docs: {kw_docs}")
+    print(f"[DEBUG] Context length: {len(compressed)} chars")
+    print(f"[DEBUG] Context preview:\n{compressed[:500]}...")
+    print("=" * 40)
+    
+    # OpenAI API 호출 (재시도/타임아웃 자동 처리)
+    try:
+        chat_res = openai.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.3,  # 0.0 → 0.3: 약간의 창의성 허용하여 설명을 더 자연스럽게
+            max_tokens=1000   # 충분한 답변 길이 보장
+        )
+        return chat_res.choices[0].message.content.strip()
+    
+    except Exception as e:
+        print(f"[ERROR] OpenAI API failed: {e}")
+        return "죄송해요. 답변 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
 
-    # 디버그: 모델 호출 직전 전달되는 컨텍스트 일부를 로깅
-    print("="*40)
-    print("[DEBUG] context 전달 내용:\n", context[:1000])
-    print("="*40)
 
-    chat_res = openai.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        temperature=0.0
-    )
-    return chat_res.choices[0].message.content.strip()
+# ============================================================================
+# 라우터
+# ============================================================================
 
-async def answer_router(question: str) -> dict:
+async def answer_router(question: str) -> Dict:
     """
-    - 지도 의도/매칭 성공 → {"type":"map", ...}
-    - 그 외 → {"type":"text", "text": "..."}  (rag_qa 결과)
+    질의 라우팅
+    - 지도 의도 → 지도 응답
+    - 일반 질의 → RAG 응답
     """
-    # 1) 지도 먼저 시도
+    # 1) 지도 시도
     try:
         mp = await maybe_answer_with_map(question)
         if mp:
             return mp
     except Exception as e:
-        # 지도 해석 실패는 조용히 무시하고 텍스트 RAG로
-        print("[WARN] map pipeline failed:", e)
-
+        print(f"[WARN] Map pipeline failed: {e}")
+    
     # 2) 텍스트 RAG
     txt = await rag_qa(question)
     return {"type": "text", "text": txt}
-
-    
-# async def rag_qa(question: str, k: int = 5) -> str:
-#     ctx_docs = await semantic_search(question, limit=k)
-#     if not ctx_docs:
-#         return "⚠️ 관련 문서를 찾지 못했습니다."
-#     context = "\n".join(f"- {d['title']}: {d['text']}" for d in ctx_docs)
-#     prompt = textwrap.dedent(f'''
-#     너는 로스트아크 커뮤니티 게시물만 참고해서 대답하는 어시스턴트야.
-#     다음 게시물들과 관련 없는 질문이 들어오면 반드시 이렇게 말해:
-#     "⚠️ 이 질문은 게시물 내용과 관련성이 낮아 답변할 수 없습니다."
-
-#     [게시물 요약]
-#     {context}
-
-#     [질문]
-#     {question}
-
-#     [답변 - 한국어로 정확하게 설명하되, 친절하게:]
-#     ''')
-#     chat_res = openai.chat.completions.create(
-#         model="gpt-4o",
-#         messages=[{"role": "user", "content": prompt}],
-#         temperature=0.2
-#     )
-#     return chat_res.choices[0].message.content.strip()

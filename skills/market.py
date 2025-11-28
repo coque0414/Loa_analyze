@@ -33,7 +33,18 @@ CATEGORY_CODE_CACHE: dict[str, Optional[int]] = {}
 
 KST = timezone(timedelta(hours=9))
 
-INTENT_STOPWORDS = {"가격", "시세", "비교", "보여줘", "알려줘", "유각", "각인서", "얼마", "해주세요", "해줘"}
+# 가격/시세 관련 의도어 + 잡음 단어들
+INTENT_STOPWORDS: tuple[str, ...] = (
+    # 가격/시세 의도
+    "가격", "시세", "얼마", "최저가", "현재가", "평균가", "가격비교", "비교",
+    # 요청어/조사
+    "알려줘", "보여줘", "해주세요", "해줘", "주세요", "검색", "조회", "좀", "요",
+    "은", "는", "이", "가", "의",
+    # 플랫폼/잡음
+    "거래소", "마켓",
+    # 도메인 특화
+    "유각", "각인서",
+)
 
 def _clean(q: str) -> str:
     return re.sub(r"\s+", " ", q.strip().lower())
@@ -221,15 +232,6 @@ async def _render_price_chart_data_uri(slug: str, days: int = 14) -> str | None:
 def _norm(s: str) -> str:
     return "".join((s or "").lower().split())
 
-INTENT_STOPWORDS = [
-    # 가격/시세 의도
-    "가격", "시세", "얼마", "최저가", "현재가", "평균가", "가격비교", "비교",
-    # 요청어/조사
-    "알려줘", "보여줘", "주세요", "검색", "조회", "좀", "요", "은", "는", "이", "가", "의",
-    # 플랫폼/잡음
-    "거래소", "마켓"
-]
-
 def _strip_intent_words(q: str) -> str:
     t = q or ""
     t = re.sub(r"[,\.\?\!]", " ", t)          # 구두점 제거
@@ -321,21 +323,107 @@ def _record_snapshot(slug: str, name: str, price: float|int, extra: Dict[str,Any
     if extra: doc.update({"extra": extra})
     market_snapshots_col.insert_one(doc)
 
-async def fetch_market_price(gl):
+async def fetch_market_price(gl: Dict[str, Any]) -> Dict[str, Any] | None:
+    """
+    glossary 문서(gl)를 받아서 현재 시세 + 히스토리(가능하면)를 가져온다.
+    항상 {"slug", "name", "price", "stats", "raw"} 형태의 dict를 반환하거나,
+    완전히 실패 시 None을 반환한다.
+    """
+    slug = gl.get("slug")
+    term_ko = gl.get("term_ko") or gl.get("name_ko")
+
+    # 1) glossary._id 에서 코드가 추출되는 경우: /markets/items/{code}
     code_from_id = _extract_item_code(gl)
     if code_from_id:
         raw = await loa_market_item_by_code(code_from_id)
         data = raw[1] if isinstance(raw, list) and len(raw) >= 2 else (raw or {})
-        name  = data.get("Name") or gl.get("term_ko")
+        name  = data.get("Name") or term_ko
         stats = data.get("Stats") or []
-        # ⛔ 저장 안 함
+
         if USE_SNAPSHOTS:
-            _bulk_upsert_stats_as_snapshots(gl["slug"], name, stats)
-        # 기본 현재가(히스토리 마지막 AvgPrice)
+            _bulk_upsert_stats_as_snapshots(slug, name, stats)
+
         cur_price = stats[-1]["AvgPrice"] if stats else None
-        # …(가능하면 /markets/items 로 CurrentMinPrice 보강하는 부분은 그대로)
-        return {"slug": gl["slug"], "name": name, "price": cur_price, "stats": stats, "raw": data}
-    # 폴백 분기도 동일하게 반환에 "stats" 추가 or None
+
+        return {
+            "slug": slug,
+            "name": name,
+            "price": cur_price,
+            "stats": stats,
+            "raw": data,
+        }
+
+    # 2) 폴백: 코드가 없을 때 /markets/items(ItemName, CategoryCode) 사용
+    resolver_market = (gl.get("resolver") or {}).get("market") or {}
+
+    # 아이템 이름 후보: resolver 쪽 > glossary 한글 이름
+    item_name = (
+        resolver_market.get("item_name")
+        or term_ko
+        or resolver_market.get("query")  # 혹시 이런 필드가 있다면
+    )
+
+    # 카테고리 코드 결정
+    category_code = resolver_market.get("category_code")
+    if category_code is None:
+        category_name = (
+            resolver_market.get("category_name")
+            or resolver_market.get("category")
+        )
+        if category_name:
+            category_code = await _category_code(category_name)
+
+    # 이름 자체를 못 얻으면 더 진행 불가 → 실패로 처리
+    if not item_name:
+        return {
+            "slug": slug,
+            "name": None,
+            "price": None,
+            "stats": [],
+            "raw": None,
+        }
+
+    raw = await loa_markets_items(item_name=item_name, category_code=category_code)
+
+    # /markets/items 응답 형태에 맞춰 1개 아이템 선택
+    # (공식 OpenAPI 기준: {"Items": [...], "TotalCount": ...} 형태)
+    items = []
+    if isinstance(raw, dict):
+        items = raw.get("Items") or raw.get("items") or []
+    elif isinstance(raw, list):
+        items = raw
+
+    if not items:
+        # 검색은 성공했지만 해당 이름/카테고리로 매칭된 아이템이 없는 경우
+        return {
+            "slug": slug,
+            "name": item_name,
+            "price": None,
+            "stats": [],
+            "raw": raw,
+        }
+
+    first = items[0]
+    name = first.get("Name") or item_name
+
+    # /markets/items 에서 얻을 수 있는 대표 가격 필드 사용
+    cur_price = (
+        first.get("CurrentMinPrice")
+        or first.get("RecentPrice")
+        or first.get("AvgPrice")
+    )
+
+    # 이 폴백은 히스토리 Stats가 없으므로 빈 리스트로 정리
+    stats: list[dict] = []
+
+    return {
+        "slug": slug,
+        "name": name,
+        "price": cur_price,
+        "stats": stats,
+        "raw": first,
+    }
+
 
 def _render_price_chart_from_stats(stats, days=14, show_volume=True, width=3.8, height=1.6):
     end = datetime.now(KST); start = end - timedelta(days=max(1, days))
