@@ -1,18 +1,21 @@
 # services/intent_classifier.py
 import numpy as np
 import time
+import hashlib
+import os
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
+from pathlib import Path
 import logging
-
-from services.embedder import get_embedder
-from services.db import db  # MongoDB 연결
+import threading
 
 logger = logging.getLogger(__name__)
 
 KST = timezone(timedelta(hours=9))
 
+# ============================================================
 # 의도별 대표 문장들
+# ============================================================
 INTENT_EXAMPLES: Dict[str, List[str]] = {
     "market_compare": [
         "원한 아드 가격 비교해줘",
@@ -69,49 +72,86 @@ INTENT_EXAMPLES: Dict[str, List[str]] = {
     ],
 }
 
-# 피드백 저장용 컬렉션
-intent_feedback_col = db["intent_feedback"]
+# 캐시 디렉토리
+CACHE_DIR = Path(__file__).parent.parent / ".cache"
+CACHE_DIR.mkdir(exist_ok=True)
+
+
+def _compute_examples_hash() -> str:
+    content = str(sorted(INTENT_EXAMPLES.items()))
+    return hashlib.md5(content.encode()).hexdigest()[:12]
 
 
 class IntentClassifier:
-    """임베딩 기반 의도 분류기"""
+    """임베딩 기반 의도 분류기 (캐싱 지원)"""
     
     def __init__(self):
-        self.embedder = get_embedder()
+        self._ready = False
+        self._embedder = None
         self._intent_embeddings: Dict[str, np.ndarray] = {}
-        self._example_embeddings: Dict[str, np.ndarray] = {}  # 개별 예시 임베딩
+        self._example_embeddings: Dict[str, np.ndarray] = {}
+        self._initialize()
+    
+    def _initialize(self):
+        if self._ready:
+            return
+        
+        start = time.time()
+        print("[IntentClassifier] 초기화 시작...")
+        
+        cache_file = CACHE_DIR / f"intent_emb_{_compute_examples_hash()}.npz"
+        
+        # 캐시 로드 시도
+        if cache_file.exists():
+            try:
+                data = np.load(cache_file, allow_pickle=True)
+                self._intent_embeddings = data["intent_emb"].item()
+                self._example_embeddings = data["example_emb"].item()
+                self._ready = True
+                print(f"[IntentClassifier] 캐시 로드 완료 ({time.time()-start:.2f}s)")
+                return
+            except Exception as e:
+                print(f"[IntentClassifier] 캐시 로드 실패: {e}")
+        
+        # 캐시 없으면 새로 계산
+        from services.embedder import get_embedder
+        self._embedder = get_embedder()
         self._build_intent_vectors()
+        
+        # 캐시 저장
+        try:
+            np.savez(
+                cache_file,
+                intent_emb=self._intent_embeddings,
+                example_emb=self._example_embeddings
+            )
+            print(f"[IntentClassifier] 캐시 저장: {cache_file}")
+        except Exception as e:
+            print(f"[IntentClassifier] 캐시 저장 실패: {e}")
+        
+        self._ready = True
+        print(f"[IntentClassifier] 초기화 완료 ({time.time()-start:.2f}s)")
     
     def _build_intent_vectors(self):
-        """각 의도별 대표 벡터 생성"""
         for intent, examples in INTENT_EXAMPLES.items():
-            embs = self.embedder.encode(examples, convert_to_numpy=True)
+            embs = self._embedder.encode(examples, convert_to_numpy=True)
             if embs.ndim == 1:
                 embs = embs.reshape(1, -1)
-            # 평균 벡터를 대표 벡터로
             self._intent_embeddings[intent] = embs.mean(axis=0)
-            # 개별 예시도 저장 (더 정밀한 매칭용)
             self._example_embeddings[intent] = embs
     
     def _cosine_sim(self, a: np.ndarray, b: np.ndarray) -> float:
-        """코사인 유사도 계산"""
         a_norm = a / (np.linalg.norm(a) + 1e-9)
         b_norm = b / (np.linalg.norm(b) + 1e-9)
         return float(np.dot(a_norm, b_norm))
     
     def classify(self, query: str, threshold: float = 0.55) -> Dict:
-        """
-        의도 분류 수행
+        # embedder 로드 (캐시에서 로드한 경우 없을 수 있음)
+        if self._embedder is None:
+            from services.embedder import get_embedder
+            self._embedder = get_embedder()
         
-        Returns:
-            {
-                "intent": "market_compare" | "market_price" | ... | "unknown",
-                "confidence": 0.85,
-                "scores": {"market_compare": 0.85, ...},
-                "best_example_score": 0.92,  # 가장 유사한 예시와의 점수
-            }
-        """
-        q_emb = self.embedder.encode(query, convert_to_numpy=True)
+        q_emb = self._embedder.encode(query, convert_to_numpy=True)
         if q_emb.ndim > 1:
             q_emb = q_emb[0]
         
@@ -119,15 +159,11 @@ class IntentClassifier:
         best_example_scores = {}
         
         for intent, intent_emb in self._intent_embeddings.items():
-            # 1) 평균 벡터와 비교
             avg_score = self._cosine_sim(q_emb, intent_emb)
-            
-            # 2) 개별 예시 중 최고 점수
             example_embs = self._example_embeddings[intent]
             example_sims = [self._cosine_sim(q_emb, ex) for ex in example_embs]
             max_example_score = max(example_sims)
             
-            # 최종 점수: 평균과 최고 예시의 가중 조합
             scores[intent] = avg_score * 0.4 + max_example_score * 0.6
             best_example_scores[intent] = max_example_score
         
@@ -142,14 +178,36 @@ class IntentClassifier:
         }
 
 
-# 싱글톤 인스턴스
+# ============================================================
+# 싱글톤
+# ============================================================
 _classifier: Optional[IntentClassifier] = None
+_init_lock = threading.Lock()
+
 
 def get_intent_classifier() -> IntentClassifier:
     global _classifier
-    if _classifier is None:
-        _classifier = IntentClassifier()
+    
+    if _classifier is not None:
+        return _classifier
+    
+    with _init_lock:
+        if _classifier is None:
+            _classifier = IntentClassifier()
+    
     return _classifier
+
+
+# ============================================================
+# 피드백 로깅 (동기 PyMongo 사용)
+# ============================================================
+def _get_sync_db():
+    """동기 MongoDB 클라이언트 (피드백 로깅용)"""
+    from pymongo import MongoClient
+    uri = os.getenv("MONGODB_URI")
+    db_name = os.getenv("DB_NAME", "lostark")
+    client = MongoClient(uri)
+    return client[db_name]
 
 
 async def log_intent_feedback(
@@ -161,9 +219,7 @@ async def log_intent_feedback(
     response_type: str = None,
     extra: dict = None,
 ):
-    """
-    의도 분류 피드백 로깅 (낮은 confidence나 불일치 케이스 분석용)
-    """
+    """피드백 로깅 (별도 스레드에서 동기 방식)"""
     doc = {
         "query": query,
         "classified_intent": classified_intent,
@@ -177,21 +233,27 @@ async def log_intent_feedback(
     if extra:
         doc["extra"] = extra
     
-    try:
-        await intent_feedback_col.insert_one(doc)
-    except Exception as e:
-        logger.warning(f"Failed to log intent feedback: {e}")
+    def _insert():
+        try:
+            db = _get_sync_db()
+            db["intent_feedback"].insert_one(doc)
+        except Exception as e:
+            logger.warning(f"Failed to log intent feedback: {e}")
+    
+    thread = threading.Thread(target=_insert, daemon=True)
+    thread.start()
 
 
 async def get_low_confidence_queries(days: int = 7, limit: int = 100) -> List[dict]:
-    """
-    리뷰가 필요한 (낮은 confidence) 쿼리들 조회
-    → 이 데이터로 INTENT_EXAMPLES 보강 가능
-    """
-    cutoff = datetime.now(KST) - timedelta(days=days)
-    cursor = intent_feedback_col.find(
-        {"needs_review": True, "ts": {"$gte": cutoff}},
-        {"_id": 0, "query": 1, "classified_intent": 1, "confidence": 1, "actual_handler": 1}
-    ).sort("ts", -1).limit(limit)
-    
-    return await cursor.to_list(length=limit)
+    """리뷰 필요 쿼리 조회 (동기 방식)"""
+    try:
+        db = _get_sync_db()
+        cutoff = datetime.now(KST) - timedelta(days=days)
+        cursor = db["intent_feedback"].find(
+            {"needs_review": True, "ts": {"$gte": cutoff}},
+            {"_id": 0, "query": 1, "classified_intent": 1, "confidence": 1, "actual_handler": 1}
+        ).sort("ts", -1).limit(limit)
+        return list(cursor)
+    except Exception as e:
+        logger.warning(f"Failed to get low confidence queries: {e}")
+        return []

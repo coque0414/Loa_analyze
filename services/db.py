@@ -1,52 +1,130 @@
+# services/db.py
 import os
+import asyncio
 from dotenv import load_dotenv, find_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 import warnings
 
-# .env 자동 탐색 및 로드 (프로젝트 루트나 상위 디렉터리의 .env를 찾아 로드)
+# .env 로드
 env_path = find_dotenv(usecwd=True)
 if env_path:
     load_dotenv(env_path)
 else:
-    # find_dotenv 못 찾으면 기본 동작(환경변수 또는 시스템 환경에서 읽기)
     load_dotenv()
 
-# 환경변수 우선
 MONGO_URI = os.getenv("MONGODB_URI")
 DB_NAME = os.getenv("DB_NAME")
+
+if not MONGO_URI:
+    warnings.warn("MONGODB_URI가 설정되어 있지 않습니다.")
 if not DB_NAME:
-    raise RuntimeError("DB_NAME 환경변수가 설정되지 않았습니다.")
+    warnings.warn("DB_NAME이 설정되어 있지 않습니다.")
 
-# 설정 누락 시 경고
-if ("MONGODB_URI" not in os.environ) and ("MONGO_URI" not in os.environ):
-    warnings.warn("환경변수 MONGODB_URI 또는 MONGO_URI가 설정되어 있지 않습니다. 로컬 기본값으로 연결합니다.")
 
-client = AsyncIOMotorClient(MONGO_URI)
-db = client[DB_NAME]
+# ============================================================
+# ✅ 핵심: event loop 체크 + 클라이언트 재생성
+# ============================================================
+_client = None
+_client_loop = None  # 클라이언트가 생성된 event loop
 
-market_col = db["market_items"]
-jewelry_col = db["jewelry_value"]
-summary_col = db["daily_summary"]
-predictions_col = db["predict_graphs"]
-posts_col = db["community_posts"]
-docs_col = db["docs_schema"]
-maps_col = db["docs_map"]
-glossary_col = db["docs_glossary"]
-guide_col = db["docs_guide"]
 
-market_snapshots_col = db["market_snapshots"]  # 시세 스냅샷 저장
+def _get_client():
+    global _client, _client_loop
+    
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        current_loop = None
+    
+    # 클라이언트가 없거나, 다른 event loop에서 생성된 경우 재생성
+    if _client is None or _client_loop is not current_loop:
+        if _client is not None:
+            try:
+                _client.close()
+            except Exception:
+                pass
+        _client = AsyncIOMotorClient(MONGO_URI)
+        _client_loop = current_loop
+    
+    return _client
+
+
+def _get_db():
+    return _get_client()[DB_NAME]
+
+
+# ============================================================
+# ✅ 동적 컬렉션 접근 클래스
+# ============================================================
+class _DynamicCollection:
+    def __init__(self, col_name: str):
+        self._col_name = col_name
+    
+    @property
+    def _col(self):
+        return _get_db()[self._col_name]
+    
+    def find(self, *args, **kwargs):
+        return self._col.find(*args, **kwargs)
+    
+    def find_one(self, *args, **kwargs):
+        return self._col.find_one(*args, **kwargs)
+    
+    def insert_one(self, *args, **kwargs):
+        return self._col.insert_one(*args, **kwargs)
+    
+    def insert_many(self, *args, **kwargs):
+        return self._col.insert_many(*args, **kwargs)
+    
+    def update_one(self, *args, **kwargs):
+        return self._col.update_one(*args, **kwargs)
+    
+    def update_many(self, *args, **kwargs):
+        return self._col.update_many(*args, **kwargs)
+    
+    def delete_one(self, *args, **kwargs):
+        return self._col.delete_one(*args, **kwargs)
+    
+    def delete_many(self, *args, **kwargs):
+        return self._col.delete_many(*args, **kwargs)
+    
+    def aggregate(self, *args, **kwargs):
+        return self._col.aggregate(*args, **kwargs)
+    
+    def count_documents(self, *args, **kwargs):
+        return self._col.count_documents(*args, **kwargs)
+    
+    def distinct(self, *args, **kwargs):
+        return self._col.distinct(*args, **kwargs)
+    
+    @property
+    def database(self):
+        return _get_db()
+
+
+class _DynamicDB:
+    def __getitem__(self, name: str):
+        return _get_db()[name]
+    
+    def __getattr__(self, name: str):
+        return getattr(_get_db(), name)
+
+
+db = _DynamicDB()
+
+market_col = _DynamicCollection("market_items")
+jewelry_col = _DynamicCollection("jewelry_value")
+summary_col = _DynamicCollection("daily_summary")
+predictions_col = _DynamicCollection("predict_graphs")
+posts_col = _DynamicCollection("community_posts")
+docs_col = _DynamicCollection("docs_schema")
+maps_col = _DynamicCollection("docs_map")
+glossary_col = _DynamicCollection("docs_glossary")
+guide_col = _DynamicCollection("docs_guide")
+market_snapshots_col = _DynamicCollection("market_snapshots")
 
 
 async def get_items(limit: int | None = None):
-    """
-    market_col에서 (item_code, name, image_url) 목록을 가져옵니다.
-    - 기본: 모든 아이템을 item_code 오름차순으로 반환
-    - limit 지정 가능
-    - DB가 연결되어 있지 않으면 빈 리스트 반환
-    """
-    if 'market_col' not in globals() or market_col is None:
-        return []
-
     pipeline = [
         {"$group": {"_id": "$item_code", "name": {"$first": "$name"}, "img": {"$first": "$image_url"}}},
         {"$sort": {"_id": 1}},
@@ -60,8 +138,8 @@ async def get_items(limit: int | None = None):
         async for doc in cursor:
             img = doc.get("img") or "https://cdn-lostark.game.onstove.com/efui_iconatlas/use/use_9_25.png"
             items.append({"code": doc["_id"], "name": doc.get("name") or "Item", "img": img})
-    except Exception:
-        # 안전하게 빈 리스트 반환 (로그가 필요하면 print/로거 추가)
+    except Exception as e:
+        print(f"[ERROR] get_items failed: {e}")
         return []
 
     return items

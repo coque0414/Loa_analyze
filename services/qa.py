@@ -308,17 +308,21 @@ async def semantic_search(
         from sklearn.metrics.pairwise import cosine_similarity
         sims = cosine_similarity(q_emb, embs)[0]
     
-    # 키워드 매칭 보정 (최적화: 토큰화 캐싱)
+    # 키워드 매칭 보정
     tokens = _tokenize_korean(question)
     
     for idx, doc in enumerate(docs):
-        text = doc.get("text", "") or ""
-        match_count = sum(1 for kw in KEYWORDS if kw in text)
+        title = (doc.get("title") or "").lower()
+        text = (doc.get("text") or "").lower()
+        
+        # ✅ 수정된 부분
+        match_count = sum(1 for tok in tokens if tok and (tok in title or tok in text))
+        
         if match_count > 0:
             sims[idx] = min(1.0, sims[idx] + KEYWORD_BOOST * min(match_count, 3))
-            docs[idx]["keyword_match"] = True
+            docs[idx]['keyword_match'] = True
         else:
-            docs[idx]["keyword_match"] = False
+            docs[idx]['keyword_match'] = False
 
     # 출처 가중치 적용도 docs에 대해 그대로 진행
     for idx, doc in enumerate(docs):
