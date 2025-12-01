@@ -315,7 +315,6 @@ async def semantic_search(
         title = (doc.get("title") or "").lower()
         text = (doc.get("text") or "").lower()
         
-        # ✅ 수정된 부분
         match_count = sum(1 for tok in tokens if tok and (tok in title or tok in text))
         
         if match_count > 0:

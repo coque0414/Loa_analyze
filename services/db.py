@@ -143,3 +143,8 @@ async def get_items(limit: int | None = None):
         return []
 
     return items
+
+# ============================================================
+__all__ = ['db', 'market_col', 'jewelry_col', 'summary_col', 'predictions_col', 
+           'posts_col', 'docs_col', 'maps_col', 'glossary_col', 'guide_col', 
+           'market_snapshots_col', 'get_items', '_get_db']

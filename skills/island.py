@@ -62,6 +62,10 @@ async def collect_next_island_slot_today():
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     day_end = day_start + timedelta(days=1)
 
+    # ✅ 디버그 로그 추가
+    print(f"[DEBUG] 현재 시간: {now}")
+    print(f"[DEBUG] API 데이터 개수: {len(data) if data else 0}")
+
     # 1) 오늘의 모든 시간 모으기
     times = set()
     for ev in data:
@@ -72,12 +76,18 @@ async def collect_next_island_slot_today():
             if day_start <= dt < day_end:
                 times.add(dt)
 
+    # ✅ 디버그 로그 추가
+    print(f"[DEBUG] 오늘 모험섬 시간들: {sorted(times)}")
+
     # 2) 지금 이후로 가장 가까운 1개 선택
     future = sorted(t for t in times if t >= now)
     if not future:
         return None  # 오늘 남은 일정 없음
     chosen = future[0]
     dt_key = chosen.strftime("%Y-%m-%dT%H:%M:%S")
+
+    # ✅ 디버그 로그 추가
+    print(f"[DEBUG] 현재 이후 시간들: {future}")
 
     # 3) 그 시간대에 뜨는 섬만 모으고, 보상은 해당 시간만 필터링
     islands = []
@@ -112,10 +122,21 @@ async def collect_next_island_slot_today():
 
 async def answer_island_calendar(query: str):
     slot = await collect_next_island_slot_today()
+    
+    # ✅ 남은 일정이 없으면 오늘 지나간 일정이라도 보여주기
     if not slot:
+        past_slot = await collect_past_island_slots_today()
+        if past_slot:
+            return {
+                "type": "island",
+                "answer": f"오늘 모험섬 일정은 모두 종료되었어요.\n마지막 일정은 {past_slot['last_time']}에 있었습니다.",
+                "period": "today",
+                "items": past_slot.get("islands", []),
+                "answer_html": past_slot.get("html"),
+            }
         return {
             "type": "island",
-            "answer": "오늘 남은 모험섬 일정이 없어요. 내일 다시 확인해 주세요!",
+            "answer": "오늘 모험섬 일정 정보를 가져오지 못했어요.",
             "period": "today",
             "items": []
         }
@@ -170,7 +191,72 @@ async def answer_island_calendar(query: str):
         "answer_html": html
     }
 
+async def collect_past_island_slots_today():
+    """오늘 이미 지나간 모험섬 일정 (마지막 시간대)"""
+    data = await _get_calendar_cached()
+    now = datetime.now(KST)
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end = day_start + timedelta(days=1)
 
+    # 오늘의 모든 시간 모으기
+    times = set()
+    for ev in data:
+        if "모험" not in (ev.get("CategoryName") or ""):
+            continue
+        for ts in (ev.get("StartTimes") or []):
+            dt = _parse_ts_kst(ts)
+            if day_start <= dt < day_end:
+                times.add(dt)
+
+    # 이미 지나간 시간들 중 가장 마지막
+    past = sorted(t for t in times if t < now)
+    if not past:
+        return None
+    
+    last_time = past[-1]
+    dt_key = last_time.strftime("%Y-%m-%dT%H:%M:%S")
+
+    # 해당 시간대에 떴던 섬들
+    islands = []
+    for ev in data:
+        if "모험" not in (ev.get("CategoryName") or ""):
+            continue
+        starts = ev.get("StartTimes") or []
+        if dt_key not in starts:
+            continue
+
+        name = ev.get("ContentsName") or ev.get("Title") or "모험섬"
+        icon_island = ev.get("ContentsIcon")
+        r_items, r_names, has_gold = _rewards_for_time(ev.get("RewardItems") or [], dt_key)
+
+        islands.append({
+            "name": name,
+            "icon": icon_island,
+            "rewards": ", ".join(r_names) if r_names else "",
+            "reward_items": r_items,
+            "has_gold": has_gold
+        })
+
+    islands.sort(key=lambda it: (not it["has_gold"], it["name"]))
+    
+    # 간단한 HTML
+    html = f"""
+    <div style="padding:12px;border:1px solid #fbbf24;border-radius:12px;background:#fffbeb;max-width:500px">
+        <div style="font-weight:600;color:#92400e;margin-bottom:8px">
+            ⏰ 오늘 일정 종료 (마지막: {last_time.strftime("%H:%M")})
+        </div>
+        <div style="font-size:14px;color:#78350f">
+            {"".join(f'<div style="margin:4px 0">• {it["name"]} - {it["rewards"] or "보상 정보 없음"}</div>' for it in islands)}
+        </div>
+    </div>
+    """.strip()
+
+    return {
+        "last_time": last_time.strftime("%H:%M"),
+        "when_iso": last_time.isoformat(),
+        "islands": islands,
+        "html": html,
+    }
 
 # --- UI 헬퍼: 칩/태그 스타일 및 분류 -------------------------
 

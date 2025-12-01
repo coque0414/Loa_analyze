@@ -9,7 +9,7 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 from pydantic import BaseModel
 
-from services.db import market_col, maps_col, market_snapshots_col
+from services.db import market_col, maps_col, market_snapshots_col, _get_db
 from services.qa import answer_router
 from services.intent_classifier import (
     get_intent_classifier,
@@ -34,7 +34,10 @@ class ChatIn(BaseModel):
         return (self.q or self.question or "").strip()
 
 
-gfs_bucket = AsyncIOMotorGridFSBucket(maps_col.database)
+# ✅ gfs_bucket을 동적으로 생성하는 함수
+def _get_gfs_bucket():
+    return AsyncIOMotorGridFSBucket(_get_db())
+
 api_router = APIRouter()
 
 
@@ -245,9 +248,11 @@ async def api_market(code: int = Query(...)):
 @api_router.get("/maps/file/{file_id}")
 async def maps_file(file_id: str):
     try:
-        stream = await gfs_bucket.open_download_stream(ObjectId(file_id))
+        bucket = _get_gfs_bucket()  # ✅ 동적으로 버킷 가져오기
+        stream = await bucket.open_download_stream(ObjectId(file_id))
         data = await stream.read()
-    except Exception:
+    except Exception as e:
+        print(f"[ERROR] maps_file failed: {e}")
         raise HTTPException(404, "file not found")
     return Response(
         content=data,

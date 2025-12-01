@@ -20,7 +20,7 @@ async def lifespan(app_instance: FastAPI):
     print("[Startup] 준비 완료!")
     yield
     print("[Shutdown] 서버 종료")
-
+ 
 
 app = FastAPI(title="LoA Dashboard API", lifespan=lifespan)
 
