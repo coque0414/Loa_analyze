@@ -18,6 +18,7 @@ from services.intent_classifier import (
 
 from skills.island import answer_island_calendar
 from skills.market import answer_market_price, answer_market_compare
+from skills.youtube import answer_youtube_recommend
 
 import logging
 
@@ -84,6 +85,9 @@ async def chat_endpoint(payload: ChatIn, request: Request):
             response_data = await _handle_map_or_fallback(question)
             actual_handler = response_data.get("_handler", "map")
         
+        elif intent == "youtube_recommend":
+            response_data = await _handle_youtube_recommend(question)
+
         else:
             # unknown 또는 general_qa → RAG
             response_data = await _handle_general_qa(question)
@@ -155,6 +159,15 @@ async def _handle_market_price(question: str) -> Dict[str, Any]:
         "chart_url": res.get("chart_url"),
     }
 
+async def _handle_youtube_recommend(question: str) -> Dict[str, Any]:
+    """YouTube 영상 추천 처리"""
+    res = await answer_youtube_recommend(question)
+    return {
+        "answer": res.get("answer", ""),
+        "type": "youtube",
+        "answer_html": res.get("answer_html"),
+        "videos": res.get("videos", []),
+    }
 
 async def _handle_map_or_fallback(question: str) -> Dict[str, Any]:
     """지도 처리 (실패 시 RAG로 폴백)"""
@@ -281,6 +294,10 @@ async def api_market_price_get(q: str):
 async def api_market_compare_get(q: str):
     return await answer_market_compare(q)
 
+@api_router.get("/youtube/recommend")
+async def api_youtube_recommend_get(q: str):
+    """YouTube 영상 추천 API (GET)"""
+    return await answer_youtube_recommend(q)
 
 @api_router.get("/charts/price")
 async def charts_price(slugs: str, days: int = 7):

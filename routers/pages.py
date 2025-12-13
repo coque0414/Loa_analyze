@@ -12,7 +12,7 @@ async def index(request: Request):
         {"label": "오늘의 소식", "href": "/news",     "img": "/static/img/news.png"},
         {"label": "그래프 보기", "href": "/graphs",   "img": "/static/img/graphs.png"},
         {"label": "보석 그래프",  "href": "/jewelrys", "img": "/static/img/jewelrys.png"},
-        {"label": "테스트중",  "href": "/testing",  "img": "/static/img/testing.png"},
+        {"label": "챗봇",  "href": "/testing",  "img": "/static/img/testing.png"},
     ]
     return templates.TemplateResponse("index.html", {"request": request, "buttons": buttons})
 

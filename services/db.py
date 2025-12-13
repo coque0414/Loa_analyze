@@ -122,6 +122,7 @@ maps_col = _DynamicCollection("docs_map")
 glossary_col = _DynamicCollection("docs_glossary")
 guide_col = _DynamicCollection("docs_guide")
 market_snapshots_col = _DynamicCollection("market_snapshots")
+youtube_col = _DynamicCollection("youtube")
 
 
 async def get_items(limit: int | None = None):
@@ -147,4 +148,4 @@ async def get_items(limit: int | None = None):
 # ============================================================
 __all__ = ['db', 'market_col', 'jewelry_col', 'summary_col', 'predictions_col', 
            'posts_col', 'docs_col', 'maps_col', 'glossary_col', 'guide_col', 
-           'market_snapshots_col', 'get_items', '_get_db']
+           'market_snapshots_col', 'get_items', '_get_db', 'youtube_col']
