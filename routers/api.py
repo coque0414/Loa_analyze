@@ -21,6 +21,7 @@ from skills.market import answer_market_price, answer_market_compare
 from skills.youtube import answer_youtube_recommend
 
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,124 @@ class ChatIn(BaseModel):
 def _get_gfs_bucket():
     return AsyncIOMotorGridFSBucket(_get_db())
 
+# ============================================================
+# ✅ 하드코딩 답변 (특정 질문용)
+# ============================================================
+HARDCODED_ANSWERS: Dict[str, Dict[str, Any]] = {
+    "로스트아크는 무슨 게임이에요": {
+        "answer": """로스트아크(Lost Ark)는 스마일게이트 RPG가 개발하고 스마일게이트에서 퍼블리싱하는 대한민국의 대규모 다중 사용자 온라인 액션 롤플레잉 게임(MMORPG)입니다.
+게임 특징으로 쿼터뷰 시점의 액션 전투, 레이드 컨텐츠가 중심 기반으로 이루어져있습니다.
+
+🎭 로스트아크의 스토리는 크게 3부작으로 나뉘어 있습니다.
+사슬 전쟁이 끝난지 500년 후, 혼돈으로 물들어가는 아크라시아를 구하기 위해 흩어졌던 7개의 아크를 모으는 여정이 주를 이루며, 모험가와 함께 아크라시아를 지키는 7인의 에스더와 아크라시아를 침공하는 페트라니아의 카제로스와 그의 휘하에 있는 여섯 군단장의 대립을 다룹니다.
+여기까지 1부 스토리 내용입니다!
+
+💫 해당 게임에는 플레이어블 클래스가 존재합니다! 클래스는 모험가가 선택하는 직업으로, 전사/마법사/무도가 등 큰 직업군 아래 세분화 전직이 존재합니다.
+각 클래스는 고유의 스킬셋과 전투 스타일을 가지고 있습니다. 아래의 설명 참조하시면 더 쉽게 이해 가능합니다!""",
+        "type": "intro",
+        "answer_html": """
+<div style="max-width:600px;">
+
+  <!-- 🔗 클래스 소개 섹션 (배너 이미지 + 링크) -->
+  <a href="https://lostark.game.onstove.com/Class" target="_blank" rel="noopener" style="display:block; text-decoration:none; margin-bottom:16px;">
+    <div style="position:relative; border-radius:12px; overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,0.15);">
+      <!-- 클래스 배너 이미지 -->
+      <img src="https://cdn-lostark.game.onstove.com/uploadfiles/banner/36970e2fb3a341d7a354e27b59079ec7.jpg" 
+           alt="로스트아크 클래스" 
+           style="width:100%; height:140px; object-fit:cover; display:block;"
+           onerror="this.src='https://cdn-lostark.game.onstove.com/uploadfiles/banner/ee44adb41ca542c392623a0181004ff3.jpg'"/>
+      <!-- 오버레이 텍스트 -->
+      <div style="position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent, rgba(0,0,0,0.8)); padding:16px;">
+        <div style="color:white; font-weight:700; font-size:16px; display:flex; align-items:center; gap:8px;">
+          💫 클래스 소개 페이지
+          <span style="font-size:18px;">→</span>
+        </div>
+        <div style="color:rgba(255,255,255,0.85); font-size:13px; margin-top:4px;">전사, 마법사, 무도가 등 다양한 클래스를 확인해보세요!</div>
+      </div>
+    </div>
+  </a>
+  
+
+
+  <!-- 🎬 트레일러 영상 섹션 (더 크게) -->
+  <div style="margin-bottom:8px;">
+    <div style="font-weight:700; color:#1f2937; margin-bottom:12px; font-size:15px;">🎬 공식 트레일러</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+      <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.12);">
+        <iframe src="https://www.youtube.com/embed/ee_1DV9BSTk" 
+                style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen></iframe>
+      </div>
+      <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.12);">
+        <iframe src="https://www.youtube.com/embed/pkkoLRFP1nk" 
+                style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⚔️ 하단 CTA -->
+  <div style="background:linear-gradient(135deg, #0b7266 0%, #059669 100%); color:white; padding:12px 16px; border-radius:10px; font-size:14px; text-align:center; margin-bottom:16px; box-shadow:0 2px 8px rgba(11,114,102,0.3);">
+    ⚔️ 아크라시아 대륙에서 잃어버린 아크를 찾아 모험을 떠나보세요!
+  </div>
+
+</div>
+""".strip()
+    },
+    "가디언나이트에 대해 설명해줘": {
+        "answer": """가디언나이트는 거대한 할버드로 묵직하고 강력한 공격을 하는 근접 클래스입니다.
+화신화 상태에서는 날개를 활용한 폭발적인 기동력과 강력한 기운으로 전장을 헤집으며 마음껏 적들을 유린합니다.
+이 클래스에 대해 더 알아보고 싶다면 아래 영상을 참고해보세요!""",
+        "type": "intro",
+        "answer_html": """
+<div style="max-width:600px;">
+  <div style="margin-bottom:8px;">
+    <div style="font-weight:700; color:#1f2937; margin-bottom:12px; font-size:15px;">🎬 가디언나이트 공식 트레일러</div>
+    <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.12);">
+      <iframe src="https://www.youtube.com/embed/hyR1jERwqRs" 
+              style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowfullscreen></iframe>
+    </div>
+  </div>
+</div>
+""".strip()
+    },
+}
+
+
+def _normalize_query(q: str) -> str:
+    """질문 정규화: 소문자화, 공백/특수문자 제거"""
+    q = q.lower().strip()
+    q = re.sub(r"[?\.\!\s]+", "", q)
+    return q
+
+
+def _check_hardcoded_answer(question: str) -> Optional[Dict[str, Any]]:
+    """
+    하드코딩된 답변이 있는지 확인
+    유사 질문도 매칭되도록 키워드 기반 매칭
+    """
+    q_norm = _normalize_query(question)
+    
+    # 정확 매칭 시도
+    for key, answer_data in HARDCODED_ANSWERS.items():
+        key_norm = _normalize_query(key)
+        if key_norm in q_norm or q_norm in key_norm:
+            return answer_data
+    
+    # 키워드 기반 매칭 (로스트아크 + 게임 + 뭐/무슨/어떤)
+    if "로스트아크" in q_norm and ("게임" in q_norm or "뭐" in q_norm or "무슨" in q_norm or "어떤" in q_norm or "소개" in q_norm):
+        return HARDCODED_ANSWERS.get("로스트아크는 무슨 게임이에요")
+    
+    # 가디언나이트 관련
+    if "가디언나이트" in q_norm and ("설명" in q_norm or "뭐" in q_norm or "소개" in q_norm or "알려" in q_norm):
+        return HARDCODED_ANSWERS.get("가디언나이트에 대해 설명해줘")
+    
+    return None
+
 api_router = APIRouter()
 
 
@@ -51,6 +170,19 @@ async def chat_endpoint(payload: ChatIn, request: Request):
     question = payload.text()
     if not question:
         raise HTTPException(status_code=400, detail="Empty question")
+    
+    # ─────────────────────────────────────────────
+    # 0) ✅ 하드코딩 답변 체크 (최우선)
+    # ─────────────────────────────────────────────
+    hardcoded = _check_hardcoded_answer(question)
+    if hardcoded:
+        logger.info(f"[Hardcoded] query='{question[:50]}' → 하드코딩 답변 반환")
+        return {
+            "answer": hardcoded.get("answer", ""),
+            "type": hardcoded.get("type", "text"),
+            "answer_html": hardcoded.get("answer_html"),
+            "items": hardcoded.get("items", []),
+        }
     
     # ─────────────────────────────────────────────
     # 1) 임베딩 기반 의도 분류
@@ -67,7 +199,7 @@ async def chat_endpoint(payload: ChatIn, request: Request):
     # ─────────────────────────────────────────────
     # 2) 의도별 핸들러 라우팅
     # ─────────────────────────────────────────────
-    actual_handler = intent  # 실제로 처리한 핸들러 (피드백용)
+    actual_handler = intent
     success = True
     response_data = {}
     
@@ -85,9 +217,10 @@ async def chat_endpoint(payload: ChatIn, request: Request):
             response_data = await _handle_map_or_fallback(question)
             actual_handler = response_data.get("_handler", "map")
         
+        # ✅ YouTube 추천 라우팅 추가!
         elif intent == "youtube_recommend":
             response_data = await _handle_youtube_recommend(question)
-
+        
         else:
             # unknown 또는 general_qa → RAG
             response_data = await _handle_general_qa(question)
@@ -159,6 +292,7 @@ async def _handle_market_price(question: str) -> Dict[str, Any]:
         "chart_url": res.get("chart_url"),
     }
 
+
 async def _handle_youtube_recommend(question: str) -> Dict[str, Any]:
     """YouTube 영상 추천 처리"""
     res = await answer_youtube_recommend(question)
@@ -168,6 +302,7 @@ async def _handle_youtube_recommend(question: str) -> Dict[str, Any]:
         "answer_html": res.get("answer_html"),
         "videos": res.get("videos", []),
     }
+
 
 async def _handle_map_or_fallback(question: str) -> Dict[str, Any]:
     """지도 처리 (실패 시 RAG로 폴백)"""
@@ -294,10 +429,12 @@ async def api_market_price_get(q: str):
 async def api_market_compare_get(q: str):
     return await answer_market_compare(q)
 
+
 @api_router.get("/youtube/recommend")
 async def api_youtube_recommend_get(q: str):
     """YouTube 영상 추천 API (GET)"""
     return await answer_youtube_recommend(q)
+
 
 @api_router.get("/charts/price")
 async def charts_price(slugs: str, days: int = 7):

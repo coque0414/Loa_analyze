@@ -11,7 +11,7 @@
     box-shadow: var(--shadow);
   }
   #chatWindow{
-    height: min(72vh, 820px); /* 창 크게 */
+    height: min(68vh, 780px); /* 버튼 영역 추가로 약간 줄임 */
     overflow-y: auto;
     padding: 20px;
     background: linear-gradient(180deg, #ffffff 0%, #fbfdfc 100%);
@@ -25,7 +25,7 @@
     padding: 12px 14px;
     border-radius: 14px;
     line-height: 1.6;
-    font-size: 16.5px;      /* 가독성 상승 */
+    font-size: 16.5px;
     word-break: break-word;
     white-space: pre-wrap;
     box-shadow: 0 2px 10px rgba(0,0,0,.04);
@@ -104,6 +104,86 @@
   .answer-card img{ opacity: 0; transition: opacity .2s ease }
   .answer-card img.loaded{ opacity: 1 }
 
+  /* ============================================
+     ✅ 빠른 질문 버튼 스타일
+     ============================================ */
+  .quick-questions-wrapper {
+    position: relative;
+    margin-bottom: 12px;
+  }
+  
+  .quick-questions {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 8px 4px;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+    scroll-behavior: smooth;
+  }
+  .quick-questions::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
+  }
+  
+  .quick-btn {
+    flex-shrink: 0;
+    padding: 10px 16px;
+    border: 1.5px solid #d1e8e4;
+    border-radius: 20px;
+    background: #fff;
+    color: #0b7266;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+  .quick-btn:hover {
+    background: #e8f7f3;
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(11, 114, 102, 0.15);
+  }
+  .quick-btn:active {
+    transform: translateY(0);
+  }
+  
+  /* 스크롤 화살표 버튼 */
+  .scroll-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: white;
+    border: 1px solid #d1e8e4;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: all 0.2s ease;
+  }
+  .scroll-arrow:hover {
+    background: #e8f7f3;
+    border-color: var(--accent);
+  }
+  .scroll-arrow.left { left: -8px; }
+  .scroll-arrow.right { right: -8px; }
+  .scroll-arrow svg {
+    width: 16px;
+    height: 16px;
+    fill: #0b7266;
+  }
+  
+  /* 화살표 숨기기 (스크롤 불필요 시) */
+  .scroll-arrow.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
 </style>
 
 <div class="container py-4">
@@ -117,11 +197,28 @@
   <div class="chat-card p-3">
     <div id="chatWindow"></div>
 
-    <div class="mt-3 d-flex" style="gap:10px">
+    <!-- ✅ 빠른 질문 버튼 영역 -->
+    <div class="quick-questions-wrapper">
+      <button class="scroll-arrow left hidden" id="scrollLeft">
+        <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+      <div class="quick-questions" id="quickQuestions">
+        <button class="quick-btn" data-question="로스트아크는 무슨 게임이에요?">로스트아크는 무슨 게임이에요?</button>
+        <button class="quick-btn" data-question="오늘 모험섬 일정 알려주세요">오늘 모험섬 일정 알려주세요</button>
+        <button class="quick-btn" data-question="원한 각인서 가격 알려줘">원한 각인서 가격 알려줘</button>
+        <button class="quick-btn" data-question="쿠르잔 북부 지도 보여줘">쿠르잔 북부 지도 보여줘</button>
+        <button class="quick-btn" data-question="카던 입장 조건이 뭐야?">카던 입장 조건이 뭐야?</button>
+      </div>
+      <button class="scroll-arrow right" id="scrollRight">
+        <svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+      </button>
+    </div>
+
+    <div class="d-flex" style="gap:10px">
       <input id="chatInput" class="form-control form-control-lg" placeholder="질문을 입력하세요" />
       <button id="sendBtn" class="btn btn-lg" style="background:var(--accent); color:white; border:none; box-shadow:var(--shadow)">전송</button>
     </div>
-    <div id="hint" class="mt-2" style="color:var(--muted); font-size:14px">Tip: “쿠르잔 북부 지도 보여줘”, “원한 유물 각인서 가격” 처럼 질문해보세요.</div>
+    <div id="hint" class="mt-2" style="color:var(--muted); font-size:14px">Tip: "쿠르잔 북부 지도 보여줘", "원한 유물 각인서 가격" 처럼 질문해보세요.</div>
   </div>
 </div>
 {% endblock %}
@@ -132,7 +229,49 @@
   const chatInput  = document.getElementById("chatInput");
   const sendBtn    = document.getElementById("sendBtn");
   const hint       = document.getElementById("hint");
-  let isBusy = false;   // ✅ 응답 중 차단
+  const quickQuestionsContainer = document.getElementById("quickQuestions");
+  const scrollLeftBtn = document.getElementById("scrollLeft");
+  const scrollRightBtn = document.getElementById("scrollRight");
+  
+  let isBusy = false;
+
+  // ✅ 스크롤 화살표 표시/숨김 업데이트
+  function updateScrollArrows() {
+    const container = quickQuestionsContainer;
+    const maxScroll = container.scrollWidth - container.clientWidth;
+    
+    if (maxScroll <= 0) {
+      scrollLeftBtn.classList.add("hidden");
+      scrollRightBtn.classList.add("hidden");
+    } else {
+      scrollLeftBtn.classList.toggle("hidden", container.scrollLeft <= 0);
+      scrollRightBtn.classList.toggle("hidden", container.scrollLeft >= maxScroll - 5);
+    }
+  }
+
+  // ✅ 스크롤 버튼 이벤트
+  scrollLeftBtn.addEventListener("click", () => {
+    quickQuestionsContainer.scrollBy({ left: -200, behavior: "smooth" });
+  });
+  scrollRightBtn.addEventListener("click", () => {
+    quickQuestionsContainer.scrollBy({ left: 200, behavior: "smooth" });
+  });
+  quickQuestionsContainer.addEventListener("scroll", updateScrollArrows);
+  window.addEventListener("resize", updateScrollArrows);
+  
+  // 초기 화살표 상태
+  setTimeout(updateScrollArrows, 100);
+
+  // ✅ 빠른 질문 버튼 클릭 이벤트
+  document.querySelectorAll(".quick-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const question = btn.dataset.question;
+      if (question && !isBusy) {
+        chatInput.value = question;
+        sendQuestion();
+      }
+    });
+  });
 
   function scrollToEnd(){
     chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -157,7 +296,7 @@
 
   // ✅ 타자(타이핑) 효과
   async function typeOut(el, text, cps=40){
-    el.textContent = ""; // 한 글자씩 타이핑
+    el.textContent = "";
     for (let i=0; i<text.length; i++){
       el.textContent += text[i];
       if (i % 2 === 0) await new Promise(r=>setTimeout(r, Math.max(5, 1000/cps)));
@@ -173,7 +312,7 @@
     wrap.innerHTML = `생각 중<span class="spinner" aria-label="loading"></span>`;
     row.appendChild(wrap);
     scrollToEnd();
-    return row; // row 자체를 반환(통째로 제거용)
+    return row;
   }
 
   // ✅ 이미지(지도 등) 블록
@@ -181,12 +320,10 @@
     const block = document.createElement("div");
     block.className = "answer-block";
 
-    // 카드에 애니메이션 클래스 부여
     const card = document.createElement("div");
     card.className = "answer-card animate-pop";
     card.innerHTML = html;
 
-    // 늦게 오는 이미지도 자연스럽게 등장
     Array.from(card.querySelectorAll("img")).forEach(img=>{
       if (img.complete) img.classList.add("loaded");
       else img.addEventListener("load", ()=>img.classList.add("loaded"), { once:true });
@@ -217,11 +354,9 @@
     chatInput.disabled = true;
     sendBtn.disabled = true;
 
-    // 유저 말풍선 (팝 애니메이션)
     addBubble("user", q);
     chatInput.value = "";
 
-    // 로딩 스피너
     const spinnerRow = addSpinner();
 
     try {
@@ -234,29 +369,23 @@
       let data;
 
       if (!res.ok) {
-        // 400 같은 경우 메시지 꺼내서 안내
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || `HTTP ${res.status}`);
       } else {
         data = await res.json();
       }
 
-      // 스피너 제거
       spinnerRow.remove();
 
-      // 봇 타이핑 출력 (대답 속도 조절하는부분)
-      const botBubble = addBubble("bot", "");  // 빈 말풍선
-      await typeOut(botBubble, data.answer || "", 25); // cps 속도 조절
+      const botBubble = addBubble("bot", "");
+      await typeOut(botBubble, data.answer || "", 25);
 
-      // HTML 카드(그래프/모험섬/지도 등)는 말풍선 아래에 블록으로
       if (data.type === "map") {
         if (data.answer_html) appendAnswerHTML(data.answer_html);
-        // map 전용 fallback 이미지 필요 시 여기에 추가 가능
       } else if (data.answer_html) {
         appendAnswerHTML(data.answer_html);
       }
 
-      // (선택) 출처 카드가 있으면
       if (data.sources?.length) appendSources(data.sources);
 
     } catch (e){
