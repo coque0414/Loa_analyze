@@ -90,13 +90,43 @@ def _make_timestamp_url(base_url: str, seconds: float) -> str:
     
     seconds = int(seconds) if seconds else 0
     
-    # 이미 타임스탬프가 있으면 제거
-    if "?" in base_url:
-        base_url = base_url.split("?")[0]
+    # URL 파싱해서 기존 t 파라미터만 제거하고 새로 추가
+    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
     
-    if seconds > 0:
-        return f"{base_url}?t={seconds}"
-    return base_url
+    try:
+        parsed = urlparse(base_url)
+        query_params = parse_qs(parsed.query)
+        
+        # 기존 t 파라미터 제거
+        query_params.pop('t', None)
+        
+        # 새 타임스탬프 추가 (0이 아닐 때만)
+        if seconds > 0:
+            query_params['t'] = [str(seconds)]
+        
+        # 파라미터를 단일 값으로 변환 (parse_qs는 리스트로 반환)
+        flat_params = {k: v[0] if len(v) == 1 else v for k, v in query_params.items()}
+        
+        # URL 재조립
+        new_query = urlencode(flat_params)
+        new_url = urlunparse((
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            new_query,
+            parsed.fragment
+        ))
+        
+        return new_url
+        
+    except Exception as e:
+        print(f"[YouTube] URL 파싱 에러: {e}, base_url={base_url}")
+        # 폴백: 단순히 &t= 추가
+        if seconds > 0:
+            separator = "&" if "?" in base_url else "?"
+            return f"{base_url}{separator}t={seconds}"
+        return base_url
 
 
 def _tokenize_query(query: str) -> List[str]:
@@ -219,11 +249,15 @@ async def _ensure_video_cache():
     
     if (_video_cache["videos"] is not None and 
         (now - _video_cache["loaded_at"] < CACHE_TTL)):
+        print(f"[YouTube] 캐시 히트 (영상 {len(_video_cache['videos'])}개)")
         return _video_cache["videos"]
     
-    print("[YouTube] 캐시 갱신 중...")
+    print("[YouTube] 캐시 갱신 시작...")
     
     try:
+        from services.db import youtube_col
+        print(f"[YouTube] youtube_col 임포트 성공: {youtube_col}")
+        
         # 모든 세그먼트 로드
         docs = await youtube_col.find(
             {},
@@ -235,11 +269,17 @@ async def _ensure_video_cache():
                 "published_at": 1, "duration": 1,
             }
         ).sort("published_at", -1).to_list(length=10000)
+        
+        print(f"[YouTube] DB에서 {len(docs)}개 문서 로드됨")
+        
     except Exception as e:
-        print(f"[ERROR] youtube_col load failed: {e}")
+        print(f"[YouTube] ❌ DB 로드 에러: {e}")
+        import traceback
+        traceback.print_exc()
         return {}
     
     if not docs:
+        print("[YouTube] ⚠️ DB에 문서가 없음!")
         return {}
     
     # 영상별 그룹화
@@ -281,7 +321,14 @@ async def _ensure_video_cache():
         "loaded_at": now,
     })
     
-    print(f"[YouTube] 캐시 완료: {len(videos)}개 영상")
+    print(f"[YouTube] ✅ 캐시 완료: {len(videos)}개 영상 (세그먼트 총 {len(docs)}개)")
+    
+    # 샘플 출력
+    if videos:
+        sample = list(videos.values())[:3]
+        for v in sample:
+            print(f"  - {v['title'][:40]}... (tags={v['tags'][:3]})")
+    
     return videos
 
 
@@ -301,24 +348,26 @@ async def search_youtube_videos(
     2. 매칭된 영상의 segment_text에서 관련 타임스탬프 찾기
     3. 못 찾으면 0:00부터 시작
     """
+    print(f"\n[YouTube] search_youtube_videos 시작")
+    print(f"[YouTube] 파라미터: query='{query}', limit={limit}, threshold={score_threshold}")
+    
     query_tokens = _tokenize_query(query)
     
-    if debug:
-        print(f"\n[YouTube] 검색 쿼리: {query}")
-        print(f"[YouTube] 추출 토큰: {query_tokens}")
+    print(f"[YouTube] 추출된 토큰: {query_tokens}")
     
     if not query_tokens:
-        if debug:
-            print("[YouTube] 토큰이 없어서 검색 불가")
+        print("[YouTube] ⚠️ 토큰이 없어서 검색 불가")
         return []
     
     # 캐시 로드
+    print("[YouTube] 캐시 로드 중...")
     videos = await _ensure_video_cache()
     
     if not videos:
-        if debug:
-            print("[YouTube] 캐시된 영상이 없음")
+        print("[YouTube] ⚠️ 캐시된 영상이 없음")
         return []
+    
+    print(f"[YouTube] 캐시에서 {len(videos)}개 영상 로드됨")
     
     # 1차: Title + Tags 매칭
     scored_videos = []
@@ -335,12 +384,13 @@ async def search_youtube_videos(
                 "match_score": score,
             })
     
-    if debug:
-        print(f"[YouTube] 1차 매칭 결과: {len(scored_videos)}개 영상")
+    print(f"[YouTube] 1차 매칭 결과: {len(scored_videos)}개 (threshold={score_threshold})")
     
     if not scored_videos:
         # 임계값 낮춰서 재시도
         relaxed = score_threshold * 0.6
+        print(f"[YouTube] 임계값 완화 재시도: {relaxed}")
+        
         for video_id, vdata in videos.items():
             title = vdata.get("title", "")
             tags = vdata.get("tags", [])
@@ -353,14 +403,20 @@ async def search_youtube_videos(
                     "match_score": score,
                 })
         
-        if debug and scored_videos:
-            print(f"[YouTube] 완화({relaxed:.2f})로 {len(scored_videos)}개 발견")
+        print(f"[YouTube] 완화 후 결과: {len(scored_videos)}개")
     
     if not scored_videos:
+        print("[YouTube] ⚠️ 매칭되는 영상 없음")
         return []
     
     # 점수순 정렬
     scored_videos.sort(key=lambda x: x["match_score"], reverse=True)
+    
+    # 상위 결과 출력
+    print(f"\n[YouTube] 상위 매칭 결과:")
+    for i, v in enumerate(scored_videos[:5], 1):
+        print(f"  {i}. {v['title'][:50]}... (점수={v['match_score']:.3f})")
+        print(f"     tags: {v.get('tags', [])[:5]}")
     
     # 2차: 타임스탬프 추출
     results = []
@@ -390,13 +446,13 @@ async def search_youtube_videos(
             "match_score": vdata["match_score"],
         })
         
-        if debug:
-            ts = _format_timestamp(best_start)
-            print(f"  - {vdata['title'][:40]}... (점수={vdata['match_score']:.2f}, 시작={ts})")
+        ts = _format_timestamp(best_start)
+        print(f"[YouTube] ✓ 선택: {vdata['title'][:40]}... (시작={ts})")
         
         if len(results) >= limit:
             break
     
+    print(f"\n[YouTube] 최종 결과: {len(results)}개 영상")
     return results
 
 
@@ -500,12 +556,33 @@ def build_youtube_response(videos: List[Dict], query: str) -> Dict[str, Any]:
 # ============================================================
 async def answer_youtube_recommend(query: str) -> Dict[str, Any]:
     """YouTube 영상 추천 메인 핸들러"""
-    videos = await search_youtube_videos(
-        query=query,
-        limit=DEFAULT_LIMIT,
-        debug=True  # 디버깅 활성화
-    )
-    return build_youtube_response(videos, query)
+    print(f"\n{'='*50}")
+    print(f"[YouTube] answer_youtube_recommend 호출됨")
+    print(f"[YouTube] 입력 쿼리: {query}")
+    print(f"{'='*50}")
+    
+    try:
+        videos = await search_youtube_videos(
+            query=query,
+            limit=DEFAULT_LIMIT,
+            debug=True  # 디버깅 활성화
+        )
+        print(f"[YouTube] 검색 결과: {len(videos)}개 영상 찾음")
+        
+        response = build_youtube_response(videos, query)
+        print(f"[YouTube] 응답 생성 완료 (type={response.get('type')})")
+        return response
+        
+    except Exception as e:
+        print(f"[YouTube] ❌ 에러 발생: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "type": "youtube",
+            "answer": "영상 검색 중 오류가 발생했어요.",
+            "answer_html": None,
+            "videos": [],
+        }
 
 
 # ============================================================
