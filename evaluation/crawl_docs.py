@@ -110,18 +110,22 @@ def discover_article_urls(
 
 
 def parse_article(url: str):
-    """schema/docs_pipeline.py의 parse_notice()와 동일한 파싱 로직."""
+    """
+    debug_inspect.py로 실제 페이지를 확인해서 얻은 선택자.
+    (schema/docs_pipeline.py의 h4.news-title / span.date 는 더 이상
+    사이트 구조와 맞지 않아 교체했다.)
+    """
 
     res = requests.get(url, headers=HEADERS, timeout=15)
     res.raise_for_status()
 
     soup = BeautifulSoup(res.text, "html.parser")
 
-    title_el = soup.select_one("h4.news-title")
+    title_el = soup.select_one("span.article__title")
     title = title_el.get_text(strip=True) if title_el else ""
 
     published_at = None
-    date_el = soup.select_one("span.date")
+    date_el = soup.select_one("div.article__date")
     if date_el:
         dtext = date_el.get_text(strip=True).replace(".", "-")
         try:
@@ -154,7 +158,14 @@ def load_existing(path: Path):
     return existing
 
 
-def crawl(category: str, max_pages: int, limit: int, delay: float, list_url_template):
+def crawl(
+    category: str,
+    max_pages: int,
+    limit: int,
+    delay: float,
+    list_url_template,
+    min_body_length: int,
+):
     urls = discover_article_urls(category, max_pages, delay, list_url_template)
 
     if not urls:
@@ -175,8 +186,15 @@ def crawl(category: str, max_pages: int, limit: int, delay: float, list_url_temp
             print(f"[SKIP] {url}: 요청 실패 ({e})")
             continue
 
-        if not parsed["title"] or not parsed["body_text"]:
-            print(f"[SKIP] {url}: 제목/본문을 찾지 못했습니다 (선택자 확인 필요)")
+        if not parsed["title"]:
+            print(f"[SKIP] {url}: 제목을 찾지 못했습니다 (선택자 확인 필요)")
+            continue
+
+        if len(parsed["body_text"]) < min_body_length:
+            print(
+                f"[SKIP] {url}: 본문 텍스트가 {len(parsed['body_text'])}자로 너무 짧습니다 "
+                f"(이미지 위주 공지일 가능성 — --min-body-length로 조정 가능)"
+            )
             continue
 
         docs.append(
@@ -223,6 +241,15 @@ def main():
         action="store_true",
         help="기존 raw_docs.jsonl에 이어서 저장 (doc_id 기준 덮어쓰기 병합)",
     )
+    parser.add_argument(
+        "--min-body-length",
+        type=int,
+        default=80,
+        help=(
+            "본문 텍스트 최소 길이(자). 이보다 짧으면 이미지 위주 공지로 보고 "
+            "건너뛴다 (기본 80)"
+        ),
+    )
     args = parser.parse_args()
 
     categories = (
@@ -240,6 +267,7 @@ def main():
             args.limit,
             args.delay,
             args.list_url_template,
+            args.min_body_length,
         )
         for doc in docs:
             all_docs[doc["doc_id"]] = doc
