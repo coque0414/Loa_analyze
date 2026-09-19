@@ -1,0 +1,70 @@
+{"id":"q001","type":"general","question":"9월 16일 정기 점검은 몇 시간 동안 진행돼?","relevant_chunk_ids":["notice_13543#1"]}
+{"id":"q002","type":"general","question":"9월 16일 정기 점검 이후 가디언 아카테스와 타이탈로스 패턴이 어떻게 바뀌었어?","relevant_chunk_ids":["notice_13545#1"]}
+{"id":"q003","type":"general","question":"벨가르딘 정복전 이벤트 보상은 언제까지 받을 수 있어?","relevant_chunk_ids":["notice_13545#4"]}
+{"id":"q004","type":"general","question":"가디언 하누마탄 토벌 중 약점 포착 버프 중첩 감소 방식이 어떻게 바뀌었어?","relevant_chunk_ids":["notice_13545#1"]}
+{"id":"q005","type":"general","question":"9/17에 추가된 알려진 버그 중 그림자 레이드 세르카 관련 내용이 뭐야?","relevant_chunk_ids":["notice_13544#1"]}
+{"id":"q006","type":"general","question":"낙원 시즌 4는 언제부터 언제까지 진행돼?","relevant_chunk_ids":["notice_13542#1"]}
+{"id":"q007","type":"general","question":"낙원 지옥/나락에서 연속 강하 보너스 보상은 어떻게 구성돼 있어?","relevant_chunk_ids":["notice_13542#2"]}
+{"id":"q008","type":"general","question":"종언의 잔영은 몇 명이서 진행하는 콘텐츠야?","relevant_chunk_ids":["notice_13532#1"]}
+{"id":"q009","type":"general","question":"종언의 잔영 노말/하드 난이도 입장에 필요한 아이템 레벨은?","relevant_chunk_ids":["notice_13532#2"]}
+{"id":"q010","type":"general","question":"종언의 잔영은 총 몇 주 동안 진행돼?","relevant_chunk_ids":["notice_13532#1"]}
+{"id":"q011","type":"general","question":"8월 27일 임시 점검에서 종언의 잔영 관련해서 뭐가 수정됐어?","relevant_chunk_ids":["notice_13534#1"]}
+{"id":"q012","type":"general","question":"PC방 파티 타임 이벤트에서 4시간 접속 달성하면 뭘 받아?","relevant_chunk_ids":["notice_13537#1"]}
+{"id":"q013","type":"general","question":"낙원 시즌 3 종료되면서 제거되는 아이템이 뭐야?","relevant_chunk_ids":["notice_13537#4"]}
+{"id":"q014","type":"general","question":"9월 9일에 판매되는 신화의 사막 패키지는 가격이 얼마야?","relevant_chunk_ids":["notice_13539#1"]}
+{"id":"q015","type":"general","question":"가을 맞이 행운 상자에서 100,000 귀속 골드 금괴가 나올 확률은?","relevant_chunk_ids":["notice_13539#12"]}
+{"id":"q016","type":"general","question":"카제로스 레이드 3막 노말 난이도 입장에 필요한 아이템 레벨은?","relevant_chunk_ids":["gmnote_1223#2"]}
+{"id":"q017","type":"general","question":"카제로스 레이드 4막 하드 난이도 입장 레벨은?","relevant_chunk_ids":["gmnote_1224#2"]}
+{"id":"q018","type":"general","question":"카제로스 레이드 종막 노말 난이도 입장 레벨은?","relevant_chunk_ids":["gmnote_1224#6"]}
+{"id":"q019","type":"general","question":"그림자 레이드 죽음의 계율자 벨가르딘은 몇 명이서 도전해?","relevant_chunk_ids":["gmnote_1225#2"]}
+{"id":"q020","type":"general","question":"그림자 레이드 벨가르딘 나이트메어 난이도 입장 레벨은?","relevant_chunk_ids":["gmnote_1225#2"]}
+{"id":"q021","type":"general","question":"볼다이크 대륙에 입장하려면 아이템 레벨이 얼마나 필요해?","relevant_chunk_ids":["gmnote_1219#2"]}
+{"id":"q022","type":"general","question":"에키드나 레이드 노말 난이도 입장 레벨은?","relevant_chunk_ids":["gmnote_1220#5"]}
+{"id":"q023","type":"general","question":"군단장 레이드 일리아칸 에피데믹 입장에 필요한 아이템 레벨은?","relevant_chunk_ids":["gmnote_1218#3"]}
+{"id":"q024","type":"general","question":"쿠르잔 남부에 입장하려면 아이템 레벨이 얼마나 필요해?","relevant_chunk_ids":["gmnote_1220#3"]}
+{"id":"q025","type":"general","question":"케누아트 요새는 하루에 몇 번 입장할 수 있어?","relevant_chunk_ids":["gmnote_1221#3"]}
+{"id":"q026","type":"general","question":"카제로스 레이드 3막/종막 익스트림은 각각 몇 주씩 진행돼?","relevant_chunk_ids":["gmnote_1226#2"]}
+{"id":"q027","type":"general","question":"카제로스 3막 익스트림 나이트메어 난이도 입장 레벨은?","relevant_chunk_ids":["gmnote_1226#2"]}
+{"id":"q028","type":"general","question":"말랑콩떡 수확제 기간에 송편 스탬프는 하루에 몇 개씩 받아?","relevant_chunk_ids":["gmnote_1226#7"]}
+{"id":"q029","type":"general","question":"혼돈의 상아탑은 몇 명이서 도전하는 던전이야?","relevant_chunk_ids":["gmnote_1219#6"]}
+{"id":"q030","type":"general","question":"일리아칸 하드 난이도 세 관문은 아이템 레벨 몇부터 입장 가능해?","relevant_chunk_ids":["gmnote_1218#3"]}
+{"id":"q031","type":"general","question":"8월 26일 업데이트에서 세르카 레이드 코르부스 툴 라크 관련 버그가 뭐가 고쳐졌어?","relevant_chunk_ids":["notice_13532#7"]}
+{"id":"q032","type":"general","question":"가디언 가르가디스 토벌 중 수정된 버그 내용이 뭐야?","relevant_chunk_ids":["notice_13537#6"]}
+{"id":"q033","type":"general","question":"9월 9일 업데이트에서 트리시온 수련장 몬스터 체력이 어떻게 바뀌었어?","relevant_chunk_ids":["notice_13542#4"]}
+{"id":"q034","type":"paraphrase","question":"9/16 점검 몇 시간 걸려?","relevant_chunk_ids":["notice_13543#1"]}
+{"id":"q035","type":"paraphrase","question":"가디언 하누마탄 버프 스택 깎이는 방식 뭐가 바뀜?","relevant_chunk_ids":["notice_13545#1"]}
+{"id":"q036","type":"paraphrase","question":"벨가르딘 정복전 보상 언제까지 받아야 돼?","relevant_chunk_ids":["notice_13545#4"]}
+{"id":"q037","type":"paraphrase","question":"낙원 시즌4 언제 시작해서 언제 끝나?","relevant_chunk_ids":["notice_13542#1"]}
+{"id":"q038","type":"paraphrase","question":"종언의 잔영 몇 인용 콘텐츠야?","relevant_chunk_ids":["notice_13532#1"]}
+{"id":"q039","type":"paraphrase","question":"종언의 잔영 템렙 조건이 뭐야?","relevant_chunk_ids":["notice_13532#2"]}
+{"id":"q040","type":"paraphrase","question":"종언의 잔영 얼마 동안 진행되는 콘텐츠야?","relevant_chunk_ids":["notice_13532#1"]}
+{"id":"q041","type":"paraphrase","question":"PC방 4시간 채우면 뭐 받아?","relevant_chunk_ids":["notice_13537#1"]}
+{"id":"q042","type":"paraphrase","question":"신상 신화의 사막 패키지 가격 얼마야?","relevant_chunk_ids":["notice_13539#1"]}
+{"id":"q043","type":"paraphrase","question":"가을 상자에서 골드 금괴 뜰 확률이 얼마나 돼?","relevant_chunk_ids":["notice_13539#12"]}
+{"id":"q044","type":"paraphrase","question":"카제로스 3막 템렙 몇이면 들어갈 수 있어?","relevant_chunk_ids":["gmnote_1223#2"]}
+{"id":"q045","type":"paraphrase","question":"카제로스 4막 하드 몇 렙부터 가능해?","relevant_chunk_ids":["gmnote_1224#2"]}
+{"id":"q046","type":"paraphrase","question":"카제로스 종막 노말은 템렙 몇이야?","relevant_chunk_ids":["gmnote_1224#6"]}
+{"id":"q047","type":"paraphrase","question":"벨가르딘 레이드 몇 명이 같이 들어가?","relevant_chunk_ids":["gmnote_1225#2"]}
+{"id":"q048","type":"paraphrase","question":"벨가르딘 나이트메어 템렙 제한이 뭐야?","relevant_chunk_ids":["gmnote_1225#2"]}
+{"id":"q049","type":"paraphrase","question":"볼다이크 가려면 템렙 얼마나 필요해?","relevant_chunk_ids":["gmnote_1219#2"]}
+{"id":"q050","type":"paraphrase","question":"에키드나 노말 입장 템렙 얼마야?","relevant_chunk_ids":["gmnote_1220#5"]}
+{"id":"q051","type":"paraphrase","question":"일리아칸 에피데믹 들어가려면 템렙 몇이야?","relevant_chunk_ids":["gmnote_1218#3"]}
+{"id":"q052","type":"paraphrase","question":"쿠르잔 남부 가려면 템렙 얼마나 돼야 해?","relevant_chunk_ids":["gmnote_1220#3"]}
+{"id":"q053","type":"paraphrase","question":"케누아트 요새 하루 입장 횟수 제한이 몇 번이야?","relevant_chunk_ids":["gmnote_1221#3"]}
+{"id":"q054","type":"paraphrase","question":"세르카 레이드에서 코르부스 툴 라크 버그 어떻게 고쳤어?","relevant_chunk_ids":["notice_13532#7"]}
+{"id":"q055","type":"disambiguation","question":"9월 2일 정기 점검은 몇 시부터 몇 시까지야?","relevant_chunk_ids":["notice_13535#1"]}
+{"id":"q056","type":"disambiguation","question":"8월 26일 정기 점검 시간이 어떻게 돼?","relevant_chunk_ids":["notice_13529#1"]}
+{"id":"q057","type":"disambiguation","question":"8월 27일 임시 점검은 몇 시간 동안 진행됐어?","relevant_chunk_ids":["notice_13533#1"]}
+{"id":"q058","type":"disambiguation","question":"8월 27일 임시 점검은 몇 시에 종료됐어?","relevant_chunk_ids":["notice_13534#1"]}
+{"id":"q059","type":"disambiguation","question":"9월 9일 정기 점검은 몇 시간이야?","relevant_chunk_ids":["notice_13540#1"]}
+{"id":"q060","type":"disambiguation","question":"카제로스 레이드 2막 하드 난이도 입장 레벨은?","relevant_chunk_ids":["gmnote_1222#2"]}
+{"id":"q061","type":"disambiguation","question":"카제로스 레이드 서막(에키드나) 하드 난이도 입장 레벨은?","relevant_chunk_ids":["gmnote_1220#5"]}
+{"id":"q062","type":"disambiguation","question":"카제로스 레이드 4막 노말 난이도 입장 레벨은?","relevant_chunk_ids":["gmnote_1224#2"]}
+{"id":"q063","type":"disambiguation","question":"그림자 레이드 벨가르딘 하드 난이도 입장 레벨은?","relevant_chunk_ids":["gmnote_1225#2"]}
+{"id":"q064","type":"disambiguation","question":"혼돈의 상아탑 노말 난이도 입장 레벨은?","relevant_chunk_ids":["gmnote_1219#6"]}
+{"id":"q065","type":"disambiguation","question":"혼돈의 상아탑 하드 난이도 입장 레벨은?","relevant_chunk_ids":["gmnote_1219#6"]}
+{"id":"q066","type":"disambiguation","question":"일리아칸 노말 난이도 입장 레벨은?","relevant_chunk_ids":["gmnote_1218#3"]}
+{"id":"q067","type":"disambiguation","question":"9월 16일 업데이트에서 인파이터 스킬 사운드 버그는 뭐가 수정됐어?","relevant_chunk_ids":["notice_13545#2"]}
+{"id":"q068","type":"disambiguation","question":"케누아트 요새에 입장하려면 아이템 레벨이 얼마나 필요해?","relevant_chunk_ids":["gmnote_1221#3"]}
+{"id":"q069","type":"disambiguation","question":"쿠르잔 북부의 모험을 시작하려면 아이템 레벨이 얼마나 필요해?","relevant_chunk_ids":["gmnote_1221#2"]}
+{"id":"q070","type":"disambiguation","question":"카제로스 3막 익스트림 하드 난이도 입장 레벨은?","relevant_chunk_ids":["gmnote_1226#2"]}

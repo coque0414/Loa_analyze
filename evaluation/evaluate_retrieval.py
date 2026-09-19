@@ -104,13 +104,34 @@ def rank_indices(scores):
     return np.argsort(scores)[::-1]
 
 
-def hit_at_k(ranked_indices, corpus, relevant_doc_id, k):
+def is_relevant(item, question):
+    """
+    question에 relevant_chunk_ids(청크 단위 정답, 실제 크롤링 데이터용)가 있으면
+    그것으로 채점하고, 없으면 예전 형식인 relevant_doc_id(문서 단위 정답,
+    sample_data 스모크 테스트용)로 채점한다.
+    """
+
+    if "relevant_chunk_ids" in question:
+        return item["chunk_id"] in question["relevant_chunk_ids"]
+
+    return item["doc_id"] == question["relevant_doc_id"]
+
+
+def relevant_label(question):
+
+    if "relevant_chunk_ids" in question:
+        return ", ".join(question["relevant_chunk_ids"])
+
+    return question["relevant_doc_id"]
+
+
+def hit_at_k(ranked_indices, corpus, question, k):
 
     top_k = ranked_indices[:k]
 
     for index in top_k:
 
-        if corpus[index]["doc_id"] == relevant_doc_id:
+        if is_relevant(corpus[index], question):
             return 1
 
     return 0
@@ -119,12 +140,12 @@ def hit_at_k(ranked_indices, corpus, relevant_doc_id, k):
 def reciprocal_rank(
     ranked_indices,
     corpus,
-    relevant_doc_id
+    question
 ):
 
     for rank, index in enumerate(ranked_indices, start=1):
 
-        if corpus[index]["doc_id"] == relevant_doc_id:
+        if is_relevant(corpus[index], question):
             return 1 / rank
 
     return 0
@@ -177,15 +198,14 @@ def main():
 
     for q in questions:
 
-        question = q["question"]
-        relevant_doc_id = q["relevant_doc_id"]
+        question_text = q["question"]
 
         # -------------------------
         # Keyword
         # -------------------------
 
         kw_scores = keyword_scores(
-            question,
+            question_text,
             corpus
         )
 
@@ -196,7 +216,7 @@ def main():
         # -------------------------
 
         query_embedding = embedder.encode(
-            question,
+            question_text,
             convert_to_numpy=True
         )
 
@@ -239,7 +259,7 @@ def main():
                 hit_at_k(
                     ranking,
                     corpus,
-                    relevant_doc_id,
+                    q,
                     1
                 )
             )
@@ -248,7 +268,7 @@ def main():
                 hit_at_k(
                     ranking,
                     corpus,
-                    relevant_doc_id,
+                    q,
                     3
                 )
             )
@@ -257,24 +277,25 @@ def main():
                 reciprocal_rank(
                     ranking,
                     corpus,
-                    relevant_doc_id
+                    q
                 )
             )
 
         hybrid_top3 = [
-            corpus[i]["doc_id"]
+            corpus[i]["chunk_id"]
             for i in hybrid_rank[:3]
         ]
 
         details.append({
-            "question": question,
-            "relevant_doc": relevant_doc_id,
+            "question": question_text,
+            "type": q.get("type", ""),
+            "relevant": relevant_label(q),
             "hybrid_top1": hybrid_top3[0],
             "hybrid_top3": ", ".join(hybrid_top3),
             "hit3": hit_at_k(
                 hybrid_rank,
                 corpus,
-                relevant_doc_id,
+                q,
                 3
             )
         })
@@ -301,6 +322,23 @@ def main():
             f"Hit@3={hit3:.3f} "
             f"MRR={mrr:.3f}"
         )
+
+    # 질문 유형별(general/paraphrase/disambiguation) hybrid Hit@3
+    # -> 어떤 유형의 질문에서 특히 잘/못 찾는지 확인용
+    by_type = {}
+    for d in details:
+        qtype = d["type"] or "unknown"
+        by_type.setdefault(qtype, []).append(d["hit3"])
+
+    if any(k != "unknown" for k in by_type):
+        print("\n===== 질문 유형별 Hybrid Hit@3 =====")
+        for qtype, hits in by_type.items():
+            hit3 = np.mean(hits)
+            summary.setdefault("hybrid_by_type", {})[qtype] = {
+                "count": len(hits),
+                "hit@3": round(float(hit3), 4),
+            }
+            print(f"{qtype:15s} Hit@3={hit3:.3f} (n={len(hits)})")
 
     # summary 저장
 
@@ -330,7 +368,8 @@ def main():
             f,
             fieldnames=[
                 "question",
-                "relevant_doc",
+                "type",
+                "relevant",
                 "hybrid_top1",
                 "hybrid_top3",
                 "hit3"
