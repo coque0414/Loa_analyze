@@ -25,6 +25,10 @@ RESULT_DIR = BASE_DIR / "results"
 
 RESULT_DIR.mkdir(exist_ok=True)
 
+# validation(70문항) + keyword_boost_sweep.py 결과로 고른 현재 후보값.
+# sweep_keyword_boost.py를 다시 돌리면 이 값도 같이 검토한다.
+KEYWORD_BOOST_WEIGHT = 0.05
+
 
 def load_jsonl(path):
 
@@ -231,12 +235,14 @@ def main():
         # Hybrid
         # -------------------------
 
-        # 현재 프로젝트의 keyword boost 개념을
-        # 단순화해서 재현
+        # keyword_boost_sweep.py 결과(validation 70문항 기준)로 고른 후보값.
+        # boost=0.05 이상부터는 개선 폭이 거의 없어(Hit@3 0.800, 이후 평평)
+        # 과도하게 큰 값(기존 0.25)을 쓸 이유가 없었다.
+        # 아직 최종 확정 값은 아니며, 실패 분석 이후 조정될 수 있다.
         keyword_boost = np.minimum(
             kw_scores,
             3
-        ) * 0.25
+        ) * KEYWORD_BOOST_WEIGHT
 
         hybrid_scores = (
             sem_scores
