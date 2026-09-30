@@ -110,6 +110,7 @@ def main():
             "type": qtype,
             "relevant": ", ".join(q["relevant_chunk_ids"]),
             "hybrid_top1": hybrid_top3[0],
+            "hybrid_top1_score": round(float(hybrid_scores[hybrid_rank[0]]), 4),
             "hybrid_top3": ", ".join(hybrid_top3),
             "hit3": hybrid_hit3,
         })
@@ -176,7 +177,10 @@ def main():
 
     with open(RESULT_DIR / "final_test_details.csv", "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(
-            f, fieldnames=["question", "type", "relevant", "hybrid_top1", "hybrid_top3", "hit3"]
+            f, fieldnames=[
+                "question", "type", "relevant",
+                "hybrid_top1", "hybrid_top1_score", "hybrid_top3", "hit3",
+            ]
         )
         writer.writeheader()
         writer.writerows(details)
