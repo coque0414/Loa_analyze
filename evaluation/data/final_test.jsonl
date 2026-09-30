@@ -1,0 +1,50 @@
+{"id":"f001","type":"general","question":"그림자 레이드 벨가르딘에서 홀딩 저스트가드는 어떻게 사용해?","relevant_chunk_ids":["gmnote_1225#3"]}
+{"id":"f002","type":"general","question":"그림자 레이드 벨가르딘 노말 난이도 클리어하면 완갑 한계돌파 재료로 뭘 줘?","relevant_chunk_ids":["gmnote_1225#5"]}
+{"id":"f003","type":"general","question":"그림자 레이드 벨가르딘 하드/나이트메어 난이도에서는 완갑 재료로 뭘 얻어?","relevant_chunk_ids":["gmnote_1225#5"]}
+{"id":"f004","type":"general","question":"벨가르딘 정복전 이벤트는 몇 주 동안 진행돼?","relevant_chunk_ids":["gmnote_1225#5"]}
+{"id":"f005","type":"general","question":"카제로스 익스트림 나이트메어 난이도를 처음 클리어하면 뭘 줘?","relevant_chunk_ids":["gmnote_1226#4"]}
+{"id":"f006","type":"general","question":"뇌전의 주화와 빛과 어둠의 주화는 어디에 써?","relevant_chunk_ids":["gmnote_1226#4"]}
+{"id":"f007","type":"general","question":"종언의 데일리리워드는 얼마야?","relevant_chunk_ids":["notice_13531#3"]}
+{"id":"f008","type":"general","question":"[달성] 종언의 잔영 노말 상품은 얼마야?","relevant_chunk_ids":["notice_13531#6"]}
+{"id":"f009","type":"general","question":"종언의 잔영 진행 중 부활은 몇 번까지 가능해?","relevant_chunk_ids":["notice_13532#3"]}
+{"id":"f010","type":"general","question":"종언의 잔영 하드 난이도를 클리어하면 노말 보상도 같이 받아?","relevant_chunk_ids":["notice_13532#4"]}
+{"id":"f011","type":"general","question":"8월 26일 업데이트에서 보안 모듈이 어떻게 바뀌었어?","relevant_chunk_ids":["notice_13532#13"]}
+{"id":"f012","type":"general","question":"아크-바이스 이벤트 먹이기 상호작용 횟수 제한이 어떻게 바뀌었어?","relevant_chunk_ids":["notice_13537#8"]}
+{"id":"f013","type":"general","question":"9월 5일에 발생한 홈페이지 순단 현상은 몇 시부터 몇 시까지였어?","relevant_chunk_ids":["notice_13538#1"]}
+{"id":"f014","type":"general","question":"킹스트라이더 탈것은 얼마야?","relevant_chunk_ids":["notice_13539#4"]}
+{"id":"f015","type":"general","question":"게임 버그는 어떻게 제보해?","relevant_chunk_ids":["notice_13544#2"]}
+{"id":"f016","type":"paraphrase","question":"벨가르딘 홀딩 저스트가드 쓰는 법이 뭐야?","relevant_chunk_ids":["gmnote_1225#3"]}
+{"id":"f017","type":"paraphrase","question":"벨가르딘 노말 깨면 완갑 재료 뭐 나와?","relevant_chunk_ids":["gmnote_1225#5"]}
+{"id":"f018","type":"paraphrase","question":"벨가르딘 하드/나이트메어는 완갑 재료가 달라?","relevant_chunk_ids":["gmnote_1225#5"]}
+{"id":"f019","type":"paraphrase","question":"벨가르딘 정복전 기간이 얼마나 돼?","relevant_chunk_ids":["gmnote_1225#5"]}
+{"id":"f020","type":"paraphrase","question":"카제로스 익스트림 나이트메어 첫 클리어 보상 뭐임?","relevant_chunk_ids":["gmnote_1226#4"]}
+{"id":"f021","type":"paraphrase","question":"뇌전의 주화 빛과어둠 주화는 어디다 써?","relevant_chunk_ids":["gmnote_1226#5"]}
+{"id":"f022","type":"paraphrase","question":"종언의 데일리 리워드 가격이 얼마야?","relevant_chunk_ids":["notice_13531#3"]}
+{"id":"f023","type":"paraphrase","question":"종언의 잔영 노말 상품 가격이 얼마야?","relevant_chunk_ids":["notice_13531#6"]}
+{"id":"f024","type":"paraphrase","question":"종언의 잔영 하다가 죽으면 부활 몇 번 돼?","relevant_chunk_ids":["notice_13532#3"]}
+{"id":"f025","type":"paraphrase","question":"종언의 잔영 하드 깨면 노말 보상도 줘?","relevant_chunk_ids":["notice_13532#4"]}
+{"id":"f026","type":"paraphrase","question":"8/26 패치에서 보안모듈 바뀐 거 있어?","relevant_chunk_ids":["notice_13532#13"]}
+{"id":"f027","type":"paraphrase","question":"아크바이스 먹이기 하루에 몇 번까지였다가 어떻게 바뀜?","relevant_chunk_ids":["notice_13537#8"]}
+{"id":"f028","type":"paraphrase","question":"9/5에 홈페이지 끊겼던 시간이 언제야?","relevant_chunk_ids":["notice_13538#1"]}
+{"id":"f029","type":"paraphrase","question":"킹스트라이더 가격 얼마임?","relevant_chunk_ids":["notice_13539#4"]}
+{"id":"f030","type":"paraphrase","question":"버그 신고는 어떻게 해?","relevant_chunk_ids":["notice_13544#2"]}
+{"id":"f031","type":"disambiguation","question":"신화의 사막 아바타 단품 가격은 얼마야?","relevant_chunk_ids":["notice_13539#2"]}
+{"id":"f032","type":"disambiguation","question":"카멜레온 펫은 얼마야?","relevant_chunk_ids":["notice_13539#5"]}
+{"id":"f033","type":"disambiguation","question":"신화의 사막 무기 단품 가격은 얼마야?","relevant_chunk_ids":["notice_13539#3"]}
+{"id":"f034","type":"disambiguation","question":"PC방 누적 접속 40시간 달성 보상이 뭐야?","relevant_chunk_ids":["notice_13537#2"]}
+{"id":"f035","type":"disambiguation","question":"PC방 누적 접속 100시간 달성 보상이 뭐야?","relevant_chunk_ids":["notice_13537#3"]}
+{"id":"f036","type":"disambiguation","question":"그림자 레이드 벨가르딘 노말 난이도 최초 클리어 보상이 뭐야?","relevant_chunk_ids":["gmnote_1225#5"]}
+{"id":"f037","type":"disambiguation","question":"종언의 잔영 유물 각인서 선택 주머니에서 얻은 각인서는 거래할 수 있어?","relevant_chunk_ids":["notice_13532#5"]}
+{"id":"f038","type":"disambiguation","question":"종언의 잔영 도전과제 6개 달성하면 노말에서 뭘 줘?","relevant_chunk_ids":["notice_13532#5"]}
+{"id":"f039","type":"disambiguation","question":"8월 26일 업데이트에서 군단장 레이드 카멘 하드 4관문 버그가 뭐가 고쳐졌어?","relevant_chunk_ids":["notice_13532#10"]}
+{"id":"f040","type":"disambiguation","question":"8월 26일 업데이트에서 가디언 루멘칼리고 버그는 뭐가 수정됐어?","relevant_chunk_ids":["notice_13532#8"]}
+{"id":"f041","type":"no_answer","question":"로스트아크에 자동차 레이싱 콘텐츠 있어?","relevant_chunk_ids":[]}
+{"id":"f042","type":"no_answer","question":"카제로스 레이드 5막은 언제 나와?","relevant_chunk_ids":[]}
+{"id":"f043","type":"no_answer","question":"로스트아크 모바일 버전은 언제 출시돼?","relevant_chunk_ids":[]}
+{"id":"f044","type":"no_answer","question":"로스트아크 안에 결혼 시스템이 있어?","relevant_chunk_ids":[]}
+{"id":"f045","type":"no_answer","question":"로스트아크는 언제 처음 출시됐어?","relevant_chunk_ids":[]}
+{"id":"f046","type":"no_answer","question":"카오스던전은 몇 층까지 있어?","relevant_chunk_ids":[]}
+{"id":"f047","type":"no_answer","question":"이번 시즌 랭킹전 보상은 뭐야?","relevant_chunk_ids":[]}
+{"id":"f048","type":"no_answer","question":"아브렐슈드가 오늘 먹은 점심은 뭐야?","relevant_chunk_ids":[]}
+{"id":"f049","type":"no_answer","question":"2027년에 추가될 신규 직업 알려줘","relevant_chunk_ids":[]}
+{"id":"f050","type":"no_answer","question":"무릉도장은 어떻게 참여해?","relevant_chunk_ids":[]}
