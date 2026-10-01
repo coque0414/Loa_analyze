@@ -1,5 +1,3 @@
 data/corpus.jsonl
 data/_debug_page.html
-results/*.json
-results/*.csv
 __pycache__/
