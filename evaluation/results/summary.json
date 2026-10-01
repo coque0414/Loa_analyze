@@ -1,0 +1,31 @@
+{
+  "keyword": {
+    "hit@1": 0.5,
+    "hit@3": 0.8,
+    "mrr": 0.6631
+  },
+  "semantic": {
+    "hit@1": 0.3571,
+    "hit@3": 0.5857,
+    "mrr": 0.5138
+  },
+  "hybrid": {
+    "hit@1": 0.5429,
+    "hit@3": 0.8,
+    "mrr": 0.6851
+  },
+  "hybrid_by_type": {
+    "general": {
+      "count": 33,
+      "hit@3": 0.697
+    },
+    "paraphrase": {
+      "count": 21,
+      "hit@3": 0.9048
+    },
+    "disambiguation": {
+      "count": 16,
+      "hit@3": 0.875
+    }
+  }
+}

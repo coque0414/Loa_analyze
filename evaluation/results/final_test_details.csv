@@ -1,0 +1,41 @@
+﻿question,type,relevant,hybrid_top1,hybrid_top1_score,hybrid_top3,hit3
+그림자 레이드 벨가르딘에서 홀딩 저스트가드는 어떻게 사용해?,general,gmnote_1225#3,gmnote_1225#3,0.7767,"gmnote_1225#3, gmnote_1225#2, notice_13532#7",1
+그림자 레이드 벨가르딘 노말 난이도 클리어하면 완갑 한계돌파 재료로 뭘 줘?,general,gmnote_1225#5,gmnote_1219#6,0.8895,"gmnote_1219#6, gmnote_1225#5, gmnote_1225#2",1
+그림자 레이드 벨가르딘 하드/나이트메어 난이도에서는 완갑 재료로 뭘 얻어?,general,gmnote_1225#5,gmnote_1225#2,0.8887,"gmnote_1225#2, gmnote_1225#5, gmnote_1222#5",1
+벨가르딘 정복전 이벤트는 몇 주 동안 진행돼?,general,gmnote_1225#5,gmnote_1226#1,0.6425,"gmnote_1226#1, gmnote_1220#10, gmnote_1225#13",0
+카제로스 익스트림 나이트메어 난이도를 처음 클리어하면 뭘 줘?,general,gmnote_1226#4,gmnote_1226#4,0.8508,"gmnote_1226#4, gmnote_1226#3, gmnote_1224#6",1
+뇌전의 주화와 빛과 어둠의 주화는 어디에 써?,general,gmnote_1226#4,gmnote_1226#4,0.6012,"gmnote_1226#4, gmnote_1220#9, gmnote_1219#8",1
+종언의 데일리리워드는 얼마야?,general,notice_13531#3,gmnote_1224#18,0.471,"gmnote_1224#18, notice_13531#7, notice_13537#4",0
+[달성] 종언의 잔영 노말 상품은 얼마야?,general,notice_13531#6,notice_13531#7,0.7412,"notice_13531#7, notice_13531#10, notice_13531#11",0
+종언의 잔영 진행 중 부활은 몇 번까지 가능해?,general,notice_13532#3,gmnote_1223#1,0.6716,"gmnote_1223#1, notice_13532#3, notice_13532#1",1
+종언의 잔영 하드 난이도를 클리어하면 노말 보상도 같이 받아?,general,notice_13532#4,gmnote_1224#6,0.8257,"gmnote_1224#6, notice_13532#4, gmnote_1225#7",1
+8월 26일 업데이트에서 보안 모듈이 어떻게 바뀌었어?,general,notice_13532#13,notice_13532#1,0.587,"notice_13532#1, gmnote_1225#1, gmnote_1218#7",0
+아크-바이스 이벤트 먹이기 상호작용 횟수 제한이 어떻게 바뀌었어?,general,notice_13537#8,notice_13537#5,0.67,"notice_13537#5, notice_13537#8, gmnote_1221#13",1
+9월 5일에 발생한 홈페이지 순단 현상은 몇 시부터 몇 시까지였어?,general,notice_13538#1,notice_13538#1,0.6242,"notice_13538#1, notice_13540#1, notice_13543#1",1
+킹스트라이더 탈것은 얼마야?,general,notice_13539#4,notice_13539#5,0.5589,"notice_13539#5, gmnote_1226#7, notice_13539#4",1
+게임 버그는 어떻게 제보해?,general,notice_13544#2,notice_13544#2,0.7883,"notice_13544#2, notice_13544#1, notice_13532#10",1
+벨가르딘 홀딩 저스트가드 쓰는 법이 뭐야?,paraphrase,gmnote_1225#3,gmnote_1225#3,0.5514,"gmnote_1225#3, notice_13532#8, gmnote_1225#2",1
+벨가르딘 노말 깨면 완갑 재료 뭐 나와?,paraphrase,gmnote_1225#5,gmnote_1225#5,0.7374,"gmnote_1225#5, gmnote_1219#6, gmnote_1225#11",1
+벨가르딘 하드/나이트메어는 완갑 재료가 달라?,paraphrase,gmnote_1225#5,gmnote_1225#5,0.6977,"gmnote_1225#5, gmnote_1225#7, gmnote_1225#11",1
+벨가르딘 정복전 기간이 얼마나 돼?,paraphrase,gmnote_1225#5,gmnote_1225#13,0.4829,"gmnote_1225#13, gmnote_1225#6, gmnote_1225#5",1
+카제로스 익스트림 나이트메어 첫 클리어 보상 뭐임?,paraphrase,gmnote_1226#4,gmnote_1224#6,0.8401,"gmnote_1224#6, gmnote_1226#4, gmnote_1226#3",1
+뇌전의 주화 빛과어둠 주화는 어디다 써?,paraphrase,gmnote_1226#4,gmnote_1226#4,0.5774,"gmnote_1226#4, gmnote_1220#9, gmnote_1219#3",1
+종언의 데일리 리워드 가격이 얼마야?,paraphrase,notice_13531#3,notice_13531#3,0.6388,"notice_13531#3, notice_13531#4, notice_13531#1",1
+종언의 잔영 노말 상품 가격이 얼마야?,paraphrase,notice_13531#6,notice_13531#7,0.6326,"notice_13531#7, notice_13531#10, notice_13531#11",0
+종언의 잔영 하다가 죽으면 부활 몇 번 돼?,paraphrase,notice_13532#3,notice_13532#3,0.6743,"notice_13532#3, notice_13532#4, gmnote_1224#18",1
+종언의 잔영 하드 깨면 노말 보상도 줘?,paraphrase,notice_13532#4,notice_13531#7,0.7283,"notice_13531#7, notice_13532#4, notice_13531#10",1
+8/26 패치에서 보안모듈 바뀐 거 있어?,paraphrase,notice_13532#13,notice_13532#7,0.6402,"notice_13532#7, notice_13537#8, notice_13532#1",0
+아크바이스 먹이기 하루에 몇 번까지였다가 어떻게 바뀜?,paraphrase,notice_13537#8,gmnote_1220#2,0.4293,"gmnote_1220#2, notice_13537#1, gmnote_1225#11",0
+9/5에 홈페이지 끊겼던 시간이 언제야?,paraphrase,notice_13538#1,notice_13538#1,0.5574,"notice_13538#1, notice_13540#1, notice_13543#1",1
+킹스트라이더 가격 얼마임?,paraphrase,notice_13539#4,gmnote_1226#4,0.453,"gmnote_1226#4, notice_13531#5, notice_13539#5",0
+버그 신고는 어떻게 해?,paraphrase,notice_13544#2,notice_13544#2,0.7242,"notice_13544#2, notice_13544#1, notice_13537#7",1
+신화의 사막 아바타 단품 가격은 얼마야?,disambiguation,notice_13539#2,notice_13539#4,0.689,"notice_13539#4, notice_13539#3, notice_13539#2",1
+카멜레온 펫은 얼마야?,disambiguation,notice_13539#5,notice_13539#5,0.4157,"notice_13539#5, notice_13539#6, gmnote_1221#35",1
+신화의 사막 무기 단품 가격은 얼마야?,disambiguation,notice_13539#3,notice_13539#4,0.6001,"notice_13539#4, notice_13539#1, notice_13539#3",1
+PC방 누적 접속 40시간 달성 보상이 뭐야?,disambiguation,notice_13537#2,notice_13537#2,0.7413,"notice_13537#2, notice_13537#1, notice_13537#3",1
+PC방 누적 접속 100시간 달성 보상이 뭐야?,disambiguation,notice_13537#3,notice_13537#2,0.7352,"notice_13537#2, notice_13537#1, notice_13537#3",1
+그림자 레이드 벨가르딘 노말 난이도 최초 클리어 보상이 뭐야?,disambiguation,gmnote_1225#5,gmnote_1224#6,0.8715,"gmnote_1224#6, gmnote_1225#2, gmnote_1224#8",0
+종언의 잔영 유물 각인서 선택 주머니에서 얻은 각인서는 거래할 수 있어?,disambiguation,notice_13532#5,notice_13531#12,0.8193,"notice_13531#12, notice_13531#19, notice_13531#7",0
+종언의 잔영 도전과제 6개 달성하면 노말에서 뭘 줘?,disambiguation,notice_13532#5,notice_13532#4,0.7419,"notice_13532#4, notice_13531#11, notice_13532#5",1
+8월 26일 업데이트에서 군단장 레이드 카멘 하드 4관문 버그가 뭐가 고쳐졌어?,disambiguation,notice_13532#10,notice_13532#10,0.8103,"notice_13532#10, notice_13532#8, notice_13532#7",1
+8월 26일 업데이트에서 가디언 루멘칼리고 버그는 뭐가 수정됐어?,disambiguation,notice_13532#8,notice_13545#1,0.7297,"notice_13545#1, gmnote_1218#7, notice_13532#10",0

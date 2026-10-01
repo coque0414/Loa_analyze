@@ -1,0 +1,63 @@
+{
+  "threshold": 0.6,
+  "answerable_accepted": 30,
+  "answerable_total": 40,
+  "no_answer_rejected": 7,
+  "no_answer_total": 10,
+  "wrongly_rejected": [
+    {
+      "question": "종언의 데일리리워드는 얼마야?",
+      "score": 0.471
+    },
+    {
+      "question": "8월 26일 업데이트에서 보안 모듈이 어떻게 바뀌었어?",
+      "score": 0.587
+    },
+    {
+      "question": "킹스트라이더 탈것은 얼마야?",
+      "score": 0.5589
+    },
+    {
+      "question": "벨가르딘 홀딩 저스트가드 쓰는 법이 뭐야?",
+      "score": 0.5514
+    },
+    {
+      "question": "벨가르딘 정복전 기간이 얼마나 돼?",
+      "score": 0.4829
+    },
+    {
+      "question": "뇌전의 주화 빛과어둠 주화는 어디다 써?",
+      "score": 0.5774
+    },
+    {
+      "question": "아크바이스 먹이기 하루에 몇 번까지였다가 어떻게 바뀜?",
+      "score": 0.4293
+    },
+    {
+      "question": "9/5에 홈페이지 끊겼던 시간이 언제야?",
+      "score": 0.5574
+    },
+    {
+      "question": "킹스트라이더 가격 얼마임?",
+      "score": 0.453
+    },
+    {
+      "question": "카멜레온 펫은 얼마야?",
+      "score": 0.4157
+    }
+  ],
+  "wrongly_accepted": [
+    {
+      "question": "카제로스 레이드 5막은 언제 나와?",
+      "score": 0.6842
+    },
+    {
+      "question": "이번 시즌 랭킹전 보상은 뭐야?",
+      "score": 0.7077
+    },
+    {
+      "question": "2027년에 추가될 신규 직업 알려줘",
+      "score": 0.6436
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "keyword_boost_weight": 0.05,
+  "answerable_stats": {
+    "n": 70,
+    "min": 0.5338,
+    "max": 0.9381,
+    "mean": 0.7569,
+    "median": 0.7525
+  },
+  "no_answer_stats": {
+    "n": 10,
+    "min": 0.4825,
+    "max": 0.6941,
+    "mean": 0.5503,
+    "median": 0.523
+  },
+  "distributions_overlap": true,
+  "candidate_threshold": 0.6139,
+  "candidate_threshold_false_positive_on_no_answer": 1,
+  "candidate_threshold_false_negative_on_answerable": 4
+}
