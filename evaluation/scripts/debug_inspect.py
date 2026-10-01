@@ -54,7 +54,7 @@ def main():
     res = requests.get(url, headers=HEADERS, timeout=15)
     res.raise_for_status()
 
-    out_path = Path(__file__).resolve().parent / "data" / "_debug_page.html"
+    out_path = Path(__file__).resolve().parent.parent / "data" / "_debug_page.html"
     out_path.parent.mkdir(exist_ok=True)
     out_path.write_text(res.text, encoding="utf-8")
 

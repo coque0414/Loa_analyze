@@ -39,8 +39,9 @@ from pathlib import Path
 import numpy as np
 from dotenv import load_dotenv
 
-BASE_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(BASE_DIR))
+SCRIPT_DIR = Path(__file__).resolve().parent
+BASE_DIR = SCRIPT_DIR.parent  # evaluation/
+sys.path.insert(0, str(SCRIPT_DIR))
 
 from evaluate_retrieval import (  # noqa: E402
     CORPUS_PATH,

@@ -42,7 +42,7 @@ HEADERS = {
     )
 }
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent  # evaluation/
 DATA_DIR = BASE_DIR / "data"
 OUTPUT_PATH = DATA_DIR / "raw_docs.jsonl"
 

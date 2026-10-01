@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent  # evaluation/
 
 RAW_PATH = BASE_DIR / "data" / "raw_docs.jsonl"
 OUTPUT_PATH = BASE_DIR / "data" / "corpus.jsonl"

@@ -8,7 +8,7 @@ import numpy as np
 
 
 # Loa_analyze 프로젝트 루트를 Python path에 추가
-ROOT_DIR = Path(__file__).resolve().parents[1]
+ROOT_DIR = Path(__file__).resolve().parents[2]
 
 sys.path.insert(0, str(ROOT_DIR))
 
@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT_DIR))
 from services.embedder import get_embedder
 
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent  # evaluation/
 
 CORPUS_PATH = BASE_DIR / "data" / "corpus.jsonl"
 QUESTION_PATH = BASE_DIR / "data" / "questions.jsonl"
