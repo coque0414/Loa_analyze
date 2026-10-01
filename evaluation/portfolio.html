@@ -1,0 +1,507 @@
+<title>로스트아크 RAG 평가</title>
+<style>
+  /* layout: 세로로 쌓이는 리포트형 페이지 - 히어로 → 통계 → AS-IS/TO-BE 다이어그램 → 문제/과정/결과 → 한계 */
+  :root {
+    --bg: #f9f9f7;
+    --surface: #fcfcfb;
+    --fg: #0b0b0b;
+    --fg-secondary: #52514e;
+    --fg-muted: #898781;
+    --border: rgba(11,11,11,0.10);
+    --grid: #e1e0d9;
+    --series-keyword: #eb6834;
+    --series-semantic: #2a78d6;
+    --series-hybrid: #1baf7a;
+    --status-good: #0ca30c;
+    --status-good-text: #006300;
+    --status-critical: #d03b3b;
+    --accent: #2a78d6;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d0d0d;
+      --surface: #1a1a19;
+      --fg: #ffffff;
+      --fg-secondary: #c3c2b7;
+      --fg-muted: #898781;
+      --border: rgba(255,255,255,0.10);
+      --grid: #2c2c2a;
+      --series-keyword: #d95926;
+      --series-semantic: #3987e5;
+      --series-hybrid: #199e70;
+      --status-good: #0ca30c;
+      --status-good-text: #0ca30c;
+      --status-critical: #e66767;
+      --accent: #3987e5;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d0d0d;
+    --surface: #1a1a19;
+    --fg: #ffffff;
+    --fg-secondary: #c3c2b7;
+    --fg-muted: #898781;
+    --border: rgba(255,255,255,0.10);
+    --grid: #2c2c2a;
+    --series-keyword: #d95926;
+    --series-semantic: #3987e5;
+    --series-hybrid: #199e70;
+    --status-good: #0ca30c;
+    --status-good-text: #0ca30c;
+    --status-critical: #e66767;
+    --accent: #3987e5;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.6;
+  }
+  .page {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 48px 20px 80px;
+  }
+  .eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px);
+    line-height: 1.25;
+    margin: 10px 0 8px;
+    text-wrap: balance;
+    font-weight: 800;
+  }
+  .subhead {
+    font-size: 17px;
+    color: var(--fg-secondary);
+    max-width: 65ch;
+    margin: 0 0 18px;
+  }
+  .byline {
+    font-size: 13px;
+    color: var(--fg-muted);
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+  }
+
+  /* 통계 타일 */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+    margin: 36px 0;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .stat {
+    background: var(--surface);
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .stat .value {
+    font-size: clamp(22px, 4vw, 30px);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .label {
+    font-size: 12.5px;
+    color: var(--fg-secondary);
+  }
+  @media (max-width: 620px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  section { margin: 56px 0; }
+  h2 {
+    font-size: 22px;
+    font-weight: 800;
+    margin: 0 0 16px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  h2 .num {
+    font-size: 14px;
+    color: var(--fg-muted);
+    font-weight: 700;
+  }
+  p { margin: 0 0 14px; max-width: 68ch; }
+  .lede { font-size: 15.5px; color: var(--fg-secondary); }
+
+  /* AS-IS / TO-BE 다이어그램 */
+  .flow-block { margin: 20px 0; }
+  .flow-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .flow-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  .flow-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px;
+    min-width: 0;
+    flex: 1 1 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .flow-step.weak { border-color: var(--status-critical); color: var(--status-critical); font-weight: 700; }
+  .flow-step.strong { border-color: var(--status-good); color: var(--status-good-text); font-weight: 700; }
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    color: var(--fg-muted);
+    font-size: 16px;
+    flex: 0 0 auto;
+  }
+  .flow-note {
+    font-size: 12.5px;
+    color: var(--fg-muted);
+    margin-top: 8px;
+  }
+
+  /* 프로세스 리스트 */
+  .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+  .steps li {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .steps .n {
+    flex: 0 0 auto;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12.5px; font-weight: 800;
+    color: var(--fg-secondary);
+  }
+  .steps .t strong { display: block; font-size: 14.5px; margin-bottom: 2px; }
+  .steps .t span { font-size: 13.5px; color: var(--fg-secondary); }
+
+  /* 차트 */
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 20px 10px;
+  }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: var(--fg-secondary); margin-bottom: 4px; }
+  .legend .sw { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  svg text { fill: var(--fg-secondary); font-size: 11px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  svg .val { fill: var(--fg); font-weight: 700; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  svg .grid-line { stroke: var(--grid); stroke-width: 1; }
+
+  /* 거절 픽토그램 */
+  .pictogram { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0; }
+  .pictogram .sq {
+    width: 28px; height: 28px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; color: #fff;
+  }
+  .pict-legend { display: flex; flex-direction: column; gap: 6px; font-size: 13px; margin-top: 10px; }
+  .pict-legend .row { display: flex; align-items: center; gap: 8px; }
+  .pict-legend .dot { width: 12px; height: 12px; border-radius: 3px; flex: 0 0 auto; }
+  .pict-legend b { font-variant-numeric: tabular-nums; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--fg-muted); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; }
+
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 14px;
+    color: var(--fg-secondary);
+  }
+  .callout strong { color: var(--fg); }
+
+  .limits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+  .limits li {
+    padding-left: 16px;
+    border-left: 3px solid var(--status-critical);
+    font-size: 14px;
+    color: var(--fg-secondary);
+  }
+  .limits li strong { color: var(--fg); display: block; margin-bottom: 3px; font-size: 14.5px; }
+
+  footer {
+    border-top: 1px solid var(--border);
+    margin-top: 64px;
+    padding-top: 20px;
+    font-size: 13px;
+    color: var(--fg-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    justify-content: space-between;
+  }
+</style>
+
+<div class="page">
+
+  <div class="eyebrow">RAG Retrieval 평가 리포트</div>
+  <h1>검색 성능보다 중요한 것</h1>
+  <p class="subhead">2단계 방어로 Hallucination을 90%까지 차단한 RAG 평가 — 로스트아크 공식 문서로 재현한 Retrieval·근거 없음 거절·Generation 검증 기록</p>
+  <div class="byline">
+    <span>공식 문서 24건</span>
+    <span>chunk 214개</span>
+    <span>validation 70문항</span>
+    <span>final test 50문항</span>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat">
+      <div class="value" style="color: var(--status-good-text)">90%</div>
+      <div class="label">무응답 질문 중 최종적으로 안전하게 처리됨 (9/10)</div>
+    </div>
+    <div class="stat">
+      <div class="value">72.5%</div>
+      <div class="label">Final Test Hybrid Retrieval Hit@3</div>
+    </div>
+    <div class="stat">
+      <div class="value" style="color: var(--status-critical)">1/25</div>
+      <div class="label">Generation 수동 채점 중 Hallucination 발생</div>
+    </div>
+    <div class="stat">
+      <div class="value">24 → 214</div>
+      <div class="label">실제 공식 문서 → 600자 chunk</div>
+    </div>
+  </div>
+
+  <section>
+    <h2><span class="num">01</span> 문제</h2>
+    <p class="lede">
+      RAG는 검색만 잘해서는 안 된다. 문서에 없는 질문에는 "모른다"고 답하는 것도
+      검색 성능만큼 중요하다. 그런데 검색 점수 threshold 하나에만 의존하는 설계는
+      이걸 보장하기 어려웠다.
+    </p>
+    <p>
+      Validation 데이터로 정한 거절 threshold(0.60)는 정답이 있는 질문의
+      4.3%(3/70)만 잘못 거절할 것으로 예측됐다. 하지만 완전히 분리된 Final Test
+      셋에 그대로 적용하자 오거절률이 25%(10/40)까지 치솟았다. 같은 corpus,
+      같은 설정인데도 질문의 표현 방식·키워드 밀도에 따라 검색 점수의 신뢰도가
+      크게 흔들린다는 뜻이다. 점수 하나짜리 단일 방어선으로는 부족했다.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">02</span> AS-IS → TO-BE</h2>
+    <div class="flow-block">
+      <div class="flow-label">AS-IS — 단일 방어선</div>
+      <div class="flow-row">
+        <div class="flow-step">질문</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Hybrid Retrieval</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step weak">점수 ≥ Threshold?<br>(1차이자 유일한 방어선)</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">LLM 답변 생성</div>
+      </div>
+      <div class="flow-note">통과하면 바로 답변 생성 — 검색 점수가 틀리면 그대로 통과된다.</div>
+    </div>
+
+    <div class="flow-block">
+      <div class="flow-label">TO-BE — 레이어드 디펜스</div>
+      <div class="flow-row">
+        <div class="flow-step">질문</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Hybrid Retrieval</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step strong">1차: 점수 ≥ 0.60?</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step strong">2차: 시스템 프롬프트<br>"추측 절대 금지"</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">답변 또는 거절</div>
+      </div>
+      <div class="flow-note">1차를 통과한 애매한 질문 3개 중 2개를 2차(생성 프롬프트)가 스스로 걸러냈다.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">03</span> 해결 과정</h2>
+    <ol class="steps">
+      <li>
+        <div class="n">1</div>
+        <div class="t"><strong>실제 데이터 수집</strong><span>로스트아크 공식 공지·GM노트 24건 크롤링, 원문 URL·수집일 보존</span></div>
+      </li>
+      <li>
+        <div class="n">2</div>
+        <div class="t"><strong>평가셋 분리</strong><span>Validation 70문항(튜닝용)과 Final Test 50문항(검증용)을 chunk 단위로 100% 분리</span></div>
+      </li>
+      <li>
+        <div class="n">3</div>
+        <div class="t"><strong>Retrieval 비교·튜닝</strong><span>Keyword / Semantic / Hybrid 비교, keyword boost 스윕, chunk overlap 실험(결과: 역효과로 기각)</span></div>
+      </li>
+      <li>
+        <div class="n">4</div>
+        <div class="t"><strong>거절 threshold 결정</strong><span>Validation 데이터로만 threshold를 정하고, Final Test로 일반화 여부를 검증</span></div>
+      </li>
+      <li>
+        <div class="n">5</div>
+        <div class="t"><strong>Generation 수동 채점</strong><span>25문항의 실제 LLM 답변을 직접 읽고 핵심정보 포함·문서 밖 추측·거절 적절성을 채점</span></div>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="num">04</span> 결과</h2>
+
+    <p class="lede">Retrieval — Validation과 Final Test 모두에서 Keyword가 Semantic을 크게 앞섰고, Hybrid는 Keyword 대비 뚜렷한 우위를 보이지 못했다.</p>
+
+    <div class="chart-card">
+      <div class="legend">
+        <span class="sw"><span class="dot" style="background:var(--series-keyword)"></span>Keyword</span>
+        <span class="sw"><span class="dot" style="background:var(--series-semantic)"></span>Semantic</span>
+        <span class="sw"><span class="dot" style="background:var(--series-hybrid)"></span>Hybrid</span>
+      </div>
+      <svg viewBox="0 0 640 260" width="100%" role="img" aria-label="Validation과 Final Test의 Keyword, Semantic, Hybrid Hit@3 비교 막대그래프">
+        <!-- 그리드 (0, 0.2, 0.4, 0.6, 0.8) -->
+        <g>
+          <line class="grid-line" x1="60" y1="200" x2="620" y2="200"/>
+          <line class="grid-line" x1="60" y1="155" x2="620" y2="155"/>
+          <line class="grid-line" x1="60" y1="110" x2="620" y2="110"/>
+          <line class="grid-line" x1="60" y1="65" x2="620" y2="65"/>
+          <line class="grid-line" x1="60" y1="20" x2="620" y2="20"/>
+          <text x="52" y="204" text-anchor="end">0%</text>
+          <text x="52" y="159" text-anchor="end">20%</text>
+          <text x="52" y="114" text-anchor="end">40%</text>
+          <text x="52" y="69" text-anchor="end">60%</text>
+          <text x="52" y="24" text-anchor="end">80%</text>
+        </g>
+        <!-- Validation group: keyword .800 semantic .586 hybrid .800 -->
+        <!-- scale: 80% = 180px (y=20..200) -> 1% = 2.25px -->
+        <g>
+          <rect x="110" y="20" width="36" height="180" rx="4" fill="var(--series-keyword)"/>
+          <text class="val" x="128" y="14" text-anchor="middle">80.0%</text>
+          <rect x="150" y="68.65" width="36" height="131.35" rx="4" fill="var(--series-semantic)"/>
+          <text class="val" x="168" y="62.65" text-anchor="middle">58.6%</text>
+          <rect x="190" y="20" width="36" height="180" rx="4" fill="var(--series-hybrid)"/>
+          <text class="val" x="208" y="14" text-anchor="middle">80.0%</text>
+          <text x="168" y="226" text-anchor="middle" font-weight="700">Validation (70문항)</text>
+        </g>
+        <!-- Final Test group: keyword .750 semantic .475 hybrid .725 -->
+        <g>
+          <rect x="400" y="31.25" width="36" height="168.75" rx="4" fill="var(--series-keyword)"/>
+          <text class="val" x="418" y="25.25" text-anchor="middle">75.0%</text>
+          <rect x="440" y="93.75" width="36" height="106.25" rx="4" fill="var(--series-semantic)"/>
+          <text class="val" x="458" y="87.75" text-anchor="middle">47.5%</text>
+          <rect x="480" y="37.5" width="36" height="162.5" rx="4" fill="var(--series-hybrid)"/>
+          <text class="val" x="498" y="31.5" text-anchor="middle">72.5%</text>
+          <text x="458" y="226" text-anchor="middle" font-weight="700">Final Test (40문항)</text>
+        </g>
+      </svg>
+    </div>
+    <p class="flow-note" style="margin-top:10px">
+      Keyword boost는 0(순수 Semantic)에서 0.05로 올릴 때 Hit@3가 58.6%→80.0%로
+      가장 크게 뛰었고, 그 이상은 평평하거나 소폭 하락해 boost=0.05로 동결했다.
+      Chunk overlap=100 실험은 81.4%→72.9%로 오히려 악화되어 기각했다 —
+      "경계" 문제보다 "비슷한 문서끼리의 경쟁"이 더 근본적인 원인이었다.
+    </p>
+
+    <p class="lede" style="margin-top:36px">근거 없음 거절 — Final Test 무응답 10문항의 최종 처리 결과</p>
+    <div class="chart-card">
+      <div class="pictogram" role="img" aria-label="무응답 10문항 중 7개 하드 거절, 2개 LLM 자체 정정, 1개 실패">
+        <span class="sq" style="background:var(--status-good)">✓</span>
+        <span class="sq" style="background:var(--status-good)">✓</span>
+        <span class="sq" style="background:var(--status-good)">✓</span>
+        <span class="sq" style="background:var(--status-good)">✓</span>
+        <span class="sq" style="background:var(--status-good)">✓</span>
+        <span class="sq" style="background:var(--status-good)">✓</span>
+        <span class="sq" style="background:var(--status-good)">✓</span>
+        <span class="sq" style="background:var(--series-semantic)">✓</span>
+        <span class="sq" style="background:var(--series-semantic)">✓</span>
+        <span class="sq" style="background:var(--status-critical)">✕</span>
+      </div>
+      <div class="pict-legend">
+        <div class="row"><span class="dot" style="background:var(--status-good)"></span><span><b>7개</b> — 검색 threshold에서 하드 거절 (1차 방어선)</span></div>
+        <div class="row"><span class="dot" style="background:var(--series-semantic)"></span><span><b>2개</b> — threshold는 통과했지만 LLM이 스스로 "정보 없음"이라 답함 (2차 방어선)</span></div>
+        <div class="row"><span class="dot" style="background:var(--status-critical)"></span><span><b>1개</b> — 실패: 존재하지 않는 "랭킹전"에 실제 존재하는 다른 이벤트 내용을 가져와 답변</span></div>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:28px">
+      <table>
+        <thead>
+          <tr><th>평가 항목</th><th class="num">Validation</th><th class="num">Final Test</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Hybrid Retrieval Hit@3</td><td class="num">80.0%</td><td class="num">72.5%</td></tr>
+          <tr><td>무응답 오탐 (threshold 통과한 무응답 질문)</td><td class="num">1/10</td><td class="num">3/10</td></tr>
+          <tr><td>답변 가능 질문 오거절</td><td class="num">3/70 (4.3%)</td><td class="num">10/40 (25%)</td></tr>
+          <tr><td>Generation 중 Hallucination</td><td class="num">—</td><td class="num">1/25 (4%)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">05</span> 한계</h2>
+    <ul class="limits">
+      <li>
+        <strong>"비슷한 문서끼리 경쟁" 문제는 미해결</strong>
+        Keyword boost를 더 올려도(0.10~0.30) 개선되지 않았고 chunk overlap도
+        역효과였다. 카제로스 레이드처럼 여러 단계가 거의 동일한 서술 패턴을
+        공유하는 도메인에서는 범용 임베딩 + 가벼운 키워드 보정만으로는 근본적인
+        한계가 있다.
+      </li>
+      <li>
+        <strong>고정 threshold의 질문셋 간 일반화 격차</strong>
+        오거절률이 validation 4.3%에서 final test 25%로 치솟은 원인을
+        분석했지만, 해결하지는 않았다 — 두 질문셋의 점수 분포 자체가
+        달랐다는 한계로 기록했다.
+      </li>
+      <li>
+        <strong>Final Test는 같은 24개 문서 안에서 분리</strong>
+        완전히 새로운 문서로 구성한 셋은 아니다. Validation이 쓰지 않은
+        chunk로만 구성했지만, 크롤링을 다시 해서 만든 독립 데이터는 아니다.
+      </li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>KoSimCSE-roberta-multitask · GPT-4o · 평가 코드/전체 결과: evaluation/ 폴더</span>
+    <span>Loa_analyze</span>
+  </footer>
+
+</div>
